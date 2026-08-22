@@ -8,6 +8,35 @@
 
 ---
 
+> ## Addendum — 2026-08-22, after acceptance
+>
+> This document repeatedly cites `CADENCE_INITIAL.md` and
+> `CADENCE_V1_IMPLEMENTATION_HANDOFF.md`. Both were **removed from the repository** in the
+> commit that followed this one, after the restructuring described below. They remain
+> retrievable in full from git, in the commit titled
+> *"docs: add baseline research corpus and project direction spec"*.
+>
+> Their content was distributed as follows:
+>
+> | Content | New home |
+> |---|---|
+> | origin, background, lessons from the 2020 project | `docs/ORIGIN.md` |
+> | OSM import, network strategy, deadlock vs gridlock, spillback, vehicle behaviour, heterogeneity, calibration, definition of done | `research/CADENCE_SUMO_SIMULATION_RESEARCH.md` |
+> | scenario progression S0–S3, traffic regimes, generalisation families, non-goals, role of LLMs | `docs/DIRECTION.md` |
+> | test strategy | `CLAUDE.md` §7 |
+> | research questions, "research still needed" | `research/INDEX.md` |
+> | everything else | already duplicated in `research/`, or superseded by this document |
+>
+> `research/CADENCE_RESEARCH_STATUS.md` was also removed; `research/INDEX.md` replaces it.
+>
+> Citations below are left unchanged. They are historical references, accurate as of the
+> date of this document, and the documentation consistency checker (PD-D06) must support
+> that category rather than treating them as broken links.
+>
+> No decision in this document is altered by this addendum.
+
+---
+
 # 1. Purpose
 
 Pre-implementation research is complete, but two of its output documents disagree on the
@@ -315,8 +344,8 @@ def movement_pressure(m: MovementState) -> float:
     return (m.queue_count_veh - m.downstream_queue_count_veh) * m.turn_ratio
 ```
 
-`MP-D01` does not exist yet; Max-Pressure decisions are issued at M8. Identifiers in
-examples throughout this document are illustrative.
+Identifiers in code examples throughout this document are illustrative; the authoritative
+list is `research/decisions.yaml`.
 
 ---
 
@@ -343,8 +372,8 @@ def test_queue_never_exceeds_lane_length(...):
 ```
 
 **0.2 — Reference decision IDs, never prose headings.**
-The research documents already define stable identifiers: `ARCH-D01`–`D12`, `CM-D01`–`D09`,
-`RL-D01`–`D08`, `MPC-D01`–`D09`, `TC-D01`–`D04`, `MP-H01`–`H05`. A heading can be renamed;
+The research documents already define 69 stable identifiers across six groups
+(`ARCH-D`, `CM-D`, `TC-D`, `MP-D`/`MP-H`, `MPC-D`/`MPC-H`, `RL-D`); see §12. A heading can be renamed;
 a decision ID cannot change meaning, because changing one's mind issues a new ID and marks
 the old one superseded.
 
@@ -548,7 +577,24 @@ would be impossible to separate its effect from the controller's.
 
 ## Unchanged and still binding
 
-All of `ARCH-D01`–`D12`, `CM-D01`–`D09`, `RL-D01`–`D08`, `MPC-D01`–`D09`, `TC-D01`–`D04`.
+Every decision in the research corpus remains binding. The authoritative index is
+`research/decisions.yaml` (77 entries, generated and validated against the source documents):
+
+| Group | Decisions | Hypotheses |
+|---|---|---|
+| `ARCH-D` architecture and controller contract | 12 | — |
+| `CM-D` cross-method comparison | 9 | — |
+| `TC-D` traffic engineering and actuated control | 8 | — |
+| `MP-D` / `MP-H` Max-Pressure | 12 | 5 |
+| `MPC-D` / `MPC-H` optimization and MPC | 11 | 4 |
+| `RL-D` reinforcement learning | 8 | — |
+| `PD-D` / `PD-Q` project direction (this document) | 7 | 1 deferred |
+
+An earlier draft of this section under-counted several groups, and an example referred to
+`MP-D01` as not yet existing. Both were wrong: `CADENCE_MAX_PRESSURE_RESEARCH.md` states at
+§8 that no Max-Pressure decision is adopted, then records `MP-D01`–`MP-D12` in a register
+later in the same file. The registry exists so that a document contradicting itself is
+caught mechanically rather than propagated.
 
 In particular `CM-D03` ("initial implementation must support Fixed-Time, Actuated, and
 external plugin controllers before RL-specific code") is satisfied by M3 preceding M4, and

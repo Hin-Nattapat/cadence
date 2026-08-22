@@ -1,0 +1,441 @@
+# CADENCE Decision Registry
+#
+# Single source of truth for every decision identifier in this project.
+# Referenced from code comments by ID (PD-D06 layer 0.2) and validated by
+# the documentation consistency checker (PD-D06 layers 1 and 3).
+#
+# status:
+#   adopted     binding; code may depend on it
+#   hypothesis  a research expectation, not a commitment
+#   deferred    consciously postponed, with a stated deadline
+#   superseded  replaced; see `superseded_by`. Code must not depend on it.
+#   retracted   withdrawn; code must not depend on it.
+#
+# Changing the meaning of an `adopted` entry is prohibited. Issue a new ID,
+# mark the old one superseded, and point it at the replacement.
+#
+# `section_sha` (PD-D06 layer 2) is added at M1, once the research documents
+# carry explicit stable anchors.
+#
+# `used_by` and `enforced_by` are filled in as code is written; the checker
+# validates them in both directions.
+
+
+# ======================================================================
+# Project direction (docs/specs/2026-08-22-project-direction.md)
+# ======================================================================
+
+PD-D01:
+  statement: "CADENCE is a platform; the previous formal title becomes the title of Study 1."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-D02:
+  statement: "Milestone ladder M0-M9: contract first, validation controllers before RL, Max-Pressure at the corridor stage."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-D03:
+  statement: "Python 3.12, uv, SUMO 1.27.1 via PyPI, ruff, mypy --strict, Pydantic v2, pytest + hypothesis, Stable-Baselines3, YAML configs, Parquet results."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-D04:
+  statement: "Unit suffixes on physical quantities, NewType identifiers, versioned semantic identifiers, explicit temporal scope."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-D05:
+  statement: "Comments default to none and must fall into PROVENANCE, GOTCHA, DECISION, or CONTRACT."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-D06:
+  statement: "Four-layer documentation anti-rot: tests over comments, decision IDs over headings, registry, content hash, bidirectional validation."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-D07:
+  statement: "Zone A (platform core) and Zone B (studies) separation, with boundaries enforced as tests."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    adopted
+
+PD-Q01:
+  statement: "Scenario site and demand data source. Deferred by decision; must be resolved before M7."
+  source:    ../docs/specs/2026-08-22-project-direction.md
+  status:    deferred
+
+
+# ======================================================================
+# Architecture and controller contract
+# ======================================================================
+
+ARCH-D01:
+  statement: "The simulation core is controller-agnostic."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D02:
+  statement: "Controllers access CADENCE traffic-domain interfaces rather than TraCI directly."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D03:
+  statement: "Canonical traffic state is separated from controller observation."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D04:
+  statement: "Signal safety/transitions are enforced outside adaptive controller algorithms."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D05:
+  statement: "Metrics and experiment KPIs are controller-independent."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D06:
+  statement: "RL frameworks are adapters, not the internal shape of CADENCE."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D07:
+  statement: "MPC prediction models remain private controller models and never receive future SUMO truth."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D08:
+  statement: "Observation fidelity and controller information scope are versioned experiment metadata."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D09:
+  statement: "Timeouts and fallback actions are part of the controller contract."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D10:
+  statement: "Training and evaluation are separate pipelines sharing the same frozen-controller interface."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D11:
+  statement: "MARL/GNN support is extensible but optional."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+ARCH-D12:
+  statement: "The repository and APIs should optimize for replacing controllers without modifying simulation semantics."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+
+# ======================================================================
+# Cross-method comparison
+# ======================================================================
+
+CM-D01:
+  statement: "CADENCE is a controller-agnostic traffic-control experimentation platform."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D02:
+  statement: "SUMO/environment correctness and reproducibility have higher priority than sophisticated control algorithms."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D03:
+  statement: "Initial implementation must support Fixed-Time, Actuated, and external plugin controllers before RL-specific code."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D04:
+  statement: "Controller evaluation must use a shared KPI/event pipeline independent of controller reward/objective."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D05:
+  statement: "Controller information/observation fidelity must be declared explicitly."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D06:
+  statement: "The main network research regime must include oversaturation and physical spillback, not only ordinary traffic."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D07:
+  statement: "Strong claims about RL require comparison with Max-Pressure and a competent predictive/non-learning method where feasible."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D08:
+  statement: "MARL/GNN is deferred until simpler multi-intersection baselines reveal a demonstrated coordination/generalization need."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+CM-D09:
+  statement: "No final “best controller” is selected before empirical experiments."
+  source:    CADENCE_CROSS_METHOD_COMPARISON.md
+  status:    adopted
+
+
+# ======================================================================
+# Traffic engineering and classical/actuated control
+# ======================================================================
+
+TC-D01:
+  statement: "Evaluate controllers across undersaturated, near-saturated, and oversaturated regimes."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D02:
+  statement: "Validate scenario saturation flow and queue discharge before controller evaluation."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D03:
+  statement: "Oversaturated evaluation must include spillback, queue management, and secondary congestion."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D04:
+  statement: "Fixed-time baseline should be reasonably tuned using established traffic-engineering principles."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D05:
+  statement: "CADENCE should include SUMO's native gap-based actuated controller as a reproducible classical baseline."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D06:
+  statement: "Actuated-controller parameters should be documented and reasonably tuned rather than relying blindly on defaults."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D07:
+  statement: "Detector placement and detector-related timing parameters must be treated as part of actuated-controller configuration and experiment metadata."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+TC-D08:
+  statement: "A controller should not be called network-aware merely because it adapts to local detector demand."
+  source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
+  status:    adopted
+
+
+# ======================================================================
+# Max-Pressure / backpressure
+# ======================================================================
+
+MP-D01:
+  statement: "Treat Max-Pressure as a serious candidate network-aware classical baseline for CADENCE rather than an optional heuristic comparison."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D02:
+  statement: "Standard downstream queue awareness must not be described as full physical spillback awareness without explicitly modeling finite link storage."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D03:
+  statement: "Max-Pressure and learned controllers should use the same legal signal-transition/safety layer wherever possible."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D04:
+  statement: "Any implementation labeled “Original Max-Pressure” must explicitly document how `x(l,m)`, `r(m,p)`, `c(l,m)`, and legal signal stages are represented."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D05:
+  statement: "Do not interpret theoretical Max-Pressure throughput-optimality as guaranteed minimum delay, waiting time, or best finite-simulation throughput."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D06:
+  statement: "Substituting lane/edge totals for movement-oriented queues must be treated as a modified formulation rather than silently assumed equivalent."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D07:
+  statement: "Distinguish local-information control from locally optimized control. Max-Pressure may use local adjacent measurements while encoding downstream network effects."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D08:
+  statement: "CADENCE must distinguish traffic flow capacity from physical link storage capacity."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D09:
+  statement: "Controller comparisons should explicitly document observation fidelity; controllers should not receive materially different levels of simulator omniscience without justification."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D10:
+  statement: "Theoretical guarantees from Original Max-Pressure must not be attributed automatically to modified pressure formulations unless supported by the corresponding theory or literature."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D11:
+  statement: "A practical network-aware baseline for CADENCE should include at least one state representation that reflects finite downstream storage or physical congestion severity."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-D12:
+  statement: "CADENCE should benchmark one well-defined Original/queue-based Max-Pressure implementation and one justified practical capacity-aware variant rather than attempting to reproduce every Max-Pressure variant."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    adopted
+
+MP-H01:
+  statement: "Max-Pressure may provide a strong network-aware baseline without RL training."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    hypothesis
+
+MP-H02:
+  statement: "Standard queue-differential pressure may not fully capture finite downstream storage and physical spillback."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    hypothesis
+
+MP-H03:
+  statement: "Practical Max-Pressure performance may depend strongly on queue definition, link length, turning ratios, and phase constraints."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    hypothesis
+
+MP-H04:
+  statement: "A meaningful CADENCE RL contribution may require improving behavior beyond standard Max-Pressure under realistic network constraints rather than merely outperforming fixed or actuated control."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    hypothesis
+
+MP-H05:
+  statement: "Hybrid designs may be more scientifically defensible than pure RL if Max-Pressure provides a strong stability-oriented backbone."
+  source:    CADENCE_MAX_PRESSURE_RESEARCH.md
+  status:    hypothesis
+
+
+# ======================================================================
+# Optimization and model predictive control
+# ======================================================================
+
+MPC-D01:
+  statement: "CADENCE should treat SUMO as the experiment environment and an MPC traffic model as an internal controller model; the two must not be assumed equivalent."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D02:
+  statement: "MPC should be evaluated partly for its ability to represent traffic and signal constraints explicitly, particularly finite storage and legal control bounds."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D03:
+  statement: "Any MPC benchmark should document its prediction model and evaluate sensitivity to model mismatch or demand uncertainty."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D04:
+  statement: "Do not benchmark an intentionally weak/toy MPC merely to favor RL."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D05:
+  statement: "CADENCE should choose an MPC prediction model based on the traffic phenomenon being evaluated, not on maximum theoretical model detail."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D06:
+  statement: "An MPC controller should not be described as predictive spillback control unless its internal model can represent finite receiving/storage constraints and backward congestion effects at the required fidelity."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D07:
+  statement: "The first MPC baseline should prefer a tractable link-based/store-and-forward-style model with explicit finite-storage constraints unless experiments show that spatial CTM detail is necessary."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D08:
+  statement: "MPC evaluation should report decision/solver latency and controller deadline failures in addition to traffic-performance metrics."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D09:
+  statement: "MPC should be evaluated under controlled model/demand mismatch rather than only under perfect prediction assumptions."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D10:
+  statement: "Any practical MPC controller should define deterministic fallback behavior for infeasible, missing-state, or solver-timeout conditions."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-D11:
+  statement: "CADENCE should implement one competent, finite-storage-aware MPC baseline rather than reproducing the full robust/stochastic MPC literature unless MPC itself becomes part of the proposed contribution."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    adopted
+
+MPC-H01:
+  statement: "Predictive control may outperform reactive Max-Pressure when congestion can be anticipated before downstream storage is exhausted."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    hypothesis
+
+MPC-H02:
+  statement: "MPC's strongest advantages may appear near finite-storage, travel-delay, and coordinated multi-intersection constraints."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    hypothesis
+
+MPC-H03:
+  statement: "Model mismatch and computational cost may erase part of MPC's theoretical advantage in realistic networks."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    hypothesis
+
+MPC-H04:
+  statement: "A modular CADENCE controller API can support MPC cleanly if the prediction model remains internal to the controller plugin."
+  source:    CADENCE_OPTIMIZATION_MPC_RESEARCH.md
+  status:    hypothesis
+
+
+# ======================================================================
+# Reinforcement learning for traffic signal control
+# ======================================================================
+
+RL-D01:
+  statement: "RL is a pluggable controller family, not the architectural center of CADENCE."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D02:
+  statement: "RL actions must pass through the common legal signal safety/constraint layer."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D03:
+  statement: "RL observation fidelity must be explicit and comparable to non-learning baselines."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D04:
+  statement: "Reward is a training signal and must remain separate from experiment KPIs."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D05:
+  statement: "Initial RL evaluation must use held-out traffic scenarios and multiple seeds."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D06:
+  statement: "Competent fixed, actuated, Max-Pressure, and MPC baselines must precede strong claims about RL superiority."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D07:
+  statement: "Use DQN as a discrete-action reference and PPO as the primary generic RL baseline for early CADENCE experiments."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
+
+RL-D08:
+  statement: "Do not implement MARL/GNN until the corridor/network experiments demonstrate a coordination problem that simpler controllers do not adequately solve."
+  source:    CADENCE_RL_TSC_RESEARCH.md
+  status:    adopted
