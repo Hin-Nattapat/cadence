@@ -474,3 +474,73 @@ RL-D08:
   statement: "Do not implement MARL/GNN until the corridor/network experiments demonstrate a coordination problem that simpler controllers do not adequately solve."
   source:    CADENCE_RL_TSC_RESEARCH.md
   status:    adopted
+
+
+# ======================================================================
+# M1a canonical state (docs/specs/2026-08-23-m1a-canonical-state.md)
+# ======================================================================
+
+ST-D01:
+  statement: "Canonical state and simulation ground truth are two distinct type spaces in two modules; controller-facing code cannot reach the second."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D02:
+  statement: "The state/ground-truth separation is enforced by banned-api lint, an import architecture test, and mypy --strict together; no one of them is sufficient."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D03:
+  statement: "Canonical state carries only quantities the simulator reports directly; every derived quantity belongs to M1b."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D04:
+  statement: "Signal state is a typed enum decoded inside simulation/sumo/; no lamp string leaves that package, including into an artifact."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D05:
+  statement: "ConnectionId, the ordered lane pair, is the lowest stable control grain; the TLS link index is recorded but is not an identity."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D06:
+  statement: "movement_definition_v1: a MovementId is the ordered edge pair, and a movement groups one or more connections."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D07:
+  statement: "Traversal identity is the (incoming lane, outgoing lane) transition, not presence on a via lane."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D08:
+  statement: "Run artifacts are partitioned into topology/, state/, and ground_truth/; events.parquet keeps its M0 schema and traversals get a sibling table."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D09:
+  statement: "Ground truth is read through an explicitly named method; step() never returns it."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D10:
+  statement: "The run manifest records terminal time, step count, and termination reason."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D11:
+  statement: "A dirty working tree is hashed into cadence_dirty_digest, not rejected."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D12:
+  statement: "All three SUMO surfaces - traci, libsumo, sumolib - live under simulation/sumo/."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D13:
+  statement: "s0_turning/v1 is a separate immutable scenario whose network file is byte-identical to s0_single_intersection/v1's by construction."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
