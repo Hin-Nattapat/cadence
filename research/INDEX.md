@@ -43,17 +43,19 @@ question, or a new contribution hypothesis — never by "we should read more".
 
 # 3. Decision Registry
 
-`research/decisions.yaml` is the authoritative index of every decision identifier: 77
+`research/decisions.yaml` is the authoritative index of every decision identifier: 98
 entries, validated against the source documents.
 
 ```
-PD-D / PD-Q    8   project direction        docs/specs/2026-08-22-project-direction.md
+PD-D / PD-Q    9   project direction
 ARCH-D        12   architecture and contract
+AP             6   architecture principles
 CM-D           9   cross-method comparison
 TC-D           8   traffic engineering and actuated control
 MP-D / MP-H   17   Max-Pressure
 MPC-D / MPC-H 15   optimization and MPC
 RL-D           8   reinforcement learning
+ST-D          14   M1a canonical state
 SIM-D          0   simulation foundation (allocated during M0)
 ```
 

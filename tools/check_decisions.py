@@ -20,7 +20,7 @@ ID_PATTERN = re.compile(r"\b([A-Z]{2,4}-(?:[DHQ]\d{2}|\d{2}))\b")
 
 DEPENDABLE_STATUSES = frozenset({"adopted", "hypothesis", "deferred"})
 # tests/ is deliberately excluded: the checker's own tests contain fabricated ids.
-SCANNED_DIRECTORIES = ("src", "tools")
+SCANNED_PATHS = (("src", "*.py"), ("tools", "*.py"), ("docs", "*.md"))
 
 
 @dataclass(frozen=True)
@@ -61,11 +61,13 @@ def check(repo_root: Path) -> list[str]:
         if decision.id not in source_path.read_text():
             problems.append(f"{decision.id}: not found in source — {decision.source}")
 
-    for directory in SCANNED_DIRECTORIES:
+    for directory, pattern in SCANNED_PATHS:
         root = repo_root / directory
         if not root.is_dir():
             continue
-        for path in sorted(root.rglob("*.py")):
+        for path in sorted(root.rglob(pattern)):
+            if directory == "docs" and "plans" in path.relative_to(root).parts:
+                continue  # Historical plans contain fabricated IDs in test examples.
             for cited in sorted(set(ID_PATTERN.findall(path.read_text()))):
                 location = path.relative_to(repo_root)
                 if cited not in registry:

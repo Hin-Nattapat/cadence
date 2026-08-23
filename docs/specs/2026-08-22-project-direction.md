@@ -4,7 +4,8 @@
 **Status:** Accepted
 **Date:** 2026-08-22
 **Supersedes:** milestone ladders in `CADENCE_V1_IMPLEMENTATION_HANDOFF.md` §20 and
-`research/CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md` §31; resolves `DEV-Q01`–`DEV-Q05`.
+`research/CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md` §31; resolves legacy development
+questions 1–5.
 
 ---
 
@@ -191,24 +192,24 @@ If Max-Pressure outperforms network-aware RL at M9, this is discovered late. By 
 
 # 5. PD-D03 — Toolchain
 
-Resolves `DEV-Q01` through `DEV-Q05`.
+Resolves legacy development questions 1–5.
 
 | Concern | Decision | Rationale |
 |---|---|---|
 | Language | **Python 3.12** | TraCI, libsumo, Gymnasium, SB3, and the entire RL-TSC literature. 3.13/3.14 outrun the RL ecosystem. |
 | Package / env manager | **uv** | Real lockfile, manages the Python version itself, no pyenv or conda layer. |
-| SUMO | **`eclipse-sumo`, `libsumo`, `traci`, `sumolib`, all pinned at `1.27.1` via uv** | Verified macOS arm64 wheels (cp39–cp314). SUMO becomes a locked dependency rather than machine state. Resolves `DEV-Q02` more strongly than the handoff anticipated. |
+| SUMO | **`eclipse-sumo`, `libsumo`, `traci`, `sumolib`, all pinned at `1.27.1` via uv** | Verified macOS arm64 wheels (cp39–cp314). SUMO becomes a locked dependency rather than machine state. Resolves legacy development question 2 more strongly than the handoff anticipated. |
 | Simulator binding | **Switchable TraCI / libsumo via config** | libsumo is materially faster in-process but has no GUI and no parallel clients per process. TraCI for inspection, libsumo for training. This is a further reason the wrapper of `ARCH-D02` must be strict. |
 | Lint + format | **ruff** | Replaces black, isort, flake8. |
 | Type checking | **mypy `--strict`** | See "Why strict" below. |
 | Config validation | **Pydantic v2**, `frozen=True`, `extra="forbid"` | A mistyped config key must be an error, not a silent default. |
 | Testing | **pytest** + **hypothesis** | Hypothesis encodes physical invariants: a queue cannot exceed its lane, occupancy stays in [0,1]. |
-| RL library | **Stable-Baselines3** — PPO primary, DQN reference | `DEV-Q03`, `RL-D07`. An established implementation keeps our own RL bugs out of the research result. |
-| Config format | **YAML as artifact, Pydantic as schema** | Nested scenario and controller configs read better in YAML than TOML. A YAML file is data that can be hashed for the reproducibility manifest; a typed Python config is code, and hashing it is meaningless. Resolves `DEV-Q04`. |
+| RL library | **Stable-Baselines3** — PPO primary, DQN reference | Legacy development question 3 and `RL-D07`. An established implementation keeps our own RL bugs out of the research result. |
+| Config format | **YAML as artifact, Pydantic as schema** | Nested scenario and controller configs read better in YAML than TOML. A YAML file is data that can be hashed for the reproducibility manifest; a typed Python config is code, and hashing it is meaningless. Resolves legacy development question 4. |
 | Result storage | **Parquet via Polars**; CSV only for small human-readable summaries | Per-vehicle, per-second output grows quickly. |
 | Training curves | **TensorBoard** (ships with SB3) | No external service, no account, no server to maintain. |
 | Experiment tracking | **Filesystem + `manifest.json` per run** | Matches the reproducibility manifest of `ARCH` §27. Zero infrastructure. |
-| State versioning | **String identifiers**, e.g. `ppo:v1`, `rl_downstream:v1` | Resolves `DEV-Q05`. See PD-D04. |
+| State versioning | **String identifiers**, e.g. `ppo:v1`, `rl_downstream:v1` | Resolves legacy development question 5. See PD-D04. |
 
 ## Why strict typing, specifically here
 
@@ -572,7 +573,7 @@ would be impossible to separate its effect from the controller's.
 |---|---|
 | `CADENCE_V1_IMPLEMENTATION_HANDOFF.md` §20, milestones M0–M7 | PD-D02 |
 | `research/CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md` §31, milestones M0–M7 | PD-D02 |
-| `CADENCE_V1_IMPLEMENTATION_HANDOFF.md` §22, `DEV-Q01`–`DEV-Q05` | PD-D03 |
+| `CADENCE_V1_IMPLEMENTATION_HANDOFF.md` §22, legacy development questions 1–5 | PD-D03 |
 | `CADENCE_INITIAL.md` §2.1, formal title as the project title | PD-D01, re-scoped to Study 1 |
 
 ## Unchanged and still binding

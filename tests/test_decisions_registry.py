@@ -63,3 +63,15 @@ def test_check_reports_a_code_reference_to_an_unknown_id(tmp_path):
     (tmp_path / "src" / "thing.py").write_text("# see XX-D99\ny = 2\n")
     problems = check(tmp_path)
     assert any("XX-D99" in p and "not in the registry" in p for p in problems)
+
+
+def test_check_reports_a_document_reference_to_an_unknown_id(tmp_path):
+    (tmp_path / "research").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "research" / "decisions.yaml").write_text(
+        'XX-D04:\n  statement: "A statement."\n  source:    real.md\n  status:    adopted\n'
+    )
+    (tmp_path / "research" / "real.md").write_text("XX-D04 lives here.\n")
+    (tmp_path / "docs" / "direction.md").write_text("Deferred under XX-Q99.\n")
+    problems = check(tmp_path)
+    assert any("XX-Q99" in p and "not in the registry" in p for p in problems)

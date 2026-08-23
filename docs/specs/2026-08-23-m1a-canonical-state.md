@@ -19,7 +19,8 @@ cannot be trusted until the run that produced it is fully described on disk. M1a
 both, and it draws one line that everything after it depends on: **which information a
 controller is allowed to see.**
 
-That line is not a realism claim. It is a **parity** claim. `CanonicalTrafficState` still
+That line is not a realism claim. It is a **parity** claim (`ST-D14`).
+`CanonicalTrafficState` still
 contains quantities no field deployment could measure — the halting count over an entire
 lane is not what a single loop detector returns. What the line guarantees is that every
 controller CADENCE compares receives the same information, so a difference in outcome is a
@@ -45,6 +46,7 @@ difference in policy. Realism is a separate, later concern belonging to the
 | `ST-D11` | A dirty working tree is hashed, not rejected. |
 | `ST-D12` | All three SUMO surfaces — `traci`, `libsumo`, `sumolib` — live under `simulation/sumo/`. |
 | `ST-D13` | `s0_turning/v1` is a separate immutable scenario whose network file is byte-identical to `s0_single_intersection/v1`'s by construction. |
+| `ST-D14` | Canonical traffic state is a controller-parity layer, not a claim of deployment or sensor realism. |
 
 ---
 

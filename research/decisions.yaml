@@ -65,6 +65,11 @@ PD-Q01:
   source:    ../docs/specs/2026-08-22-project-direction.md
   status:    deferred
 
+PD-Q02:
+  statement: "Whether CADENCE needs a replay viewer of its own. Deferred; not before M8."
+  source:    ../docs/DIRECTION.md
+  status:    deferred
+
 
 # ======================================================================
 # Architecture and controller contract
@@ -542,5 +547,10 @@ ST-D12:
 
 ST-D13:
   statement: "s0_turning/v1 is a separate immutable scenario whose network file is byte-identical to s0_single_intersection/v1's by construction."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D14:
+  statement: "Canonical traffic state is a controller-parity layer, not a claim of deployment or sensor realism."
   source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
   status:    adopted
