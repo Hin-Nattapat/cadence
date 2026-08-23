@@ -1,0 +1,13 @@
+scenario_id: s0_single_intersection
+scenario_version: 1
+description: >
+  Deterministic four-approach synthetic intersection, two lanes per direction, one
+  static traffic light. Integration testing, action and safety validation, and metric
+  verification only. Not for research claims.
+network_file: network.net.xml
+demand_file: demand.rou.xml
+begin_s: 0.0
+end_s: 600.0
+step_length_s: 1.0
+time_to_teleport_s: 300.0
+default_seed: 1

@@ -13,8 +13,8 @@ The reasoning behind everything here is in
 ```
 Pre-implementation research        complete
 Project direction and conventions  decided  (PD-D01 .. PD-D07)
-Implementation                     not started
-Current milestone                  M0 — Simulation Harness
+Implementation                     M0 complete, M1 not started
+Current milestone                  M1 — Canonical State + Metrics
 ```
 
 ---
@@ -23,8 +23,8 @@ Current milestone                  M0 — Simulation Harness
 
 | | Milestone | Delivers | State |
 |---|---|---|---|
-| **M0** | Simulation Harness | deterministic SUMO lifecycle, TraCI/libsumo wrapper, scenario loader, seed wiring, event capture | current |
-| **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | |
+| **M0** | Simulation Harness | deterministic SUMO lifecycle, TraCI/libsumo wrapper, scenario loader, seed wiring, event capture | done |
+| **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | current |
 | **M2** | Signal Safety + Controller Contract | controller interface, action types, safety and transition executor, action masks, timeout and fallback | |
 | **M3** | Validation Controllers | tuned fixed-time, SUMO native actuated — the acceptance test for M2 | |
 | **M4** | RL Adapter | Gymnasium adapter, observation builder v1, action mapping, reward v1 | |

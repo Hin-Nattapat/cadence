@@ -9,6 +9,6 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 
-# CADENCE experiment output
+# CADENCE experiment output. Run-output paths only: a committed golden event stream
+# (e.g. an M1 test fixture) must not vanish just because it happens to be a .parquet file.
 studies/**/runs/
-*.parquet
