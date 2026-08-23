@@ -45,7 +45,10 @@ Zone B — STUDIES           studies/<NN>-<slug>/
 | No RL concepts (policy objects, replay buffers, PPO, DQN) in the simulation core | `AP-02` |
 | An MPC-style controller never receives future simulator truth | `ARCH-D07` |
 
-These are enforced by `tests/test_architecture.py`, not by good intentions.
+Two of these — no `traci`/`libsumo` import outside `simulation/sumo/`, and no raw lamp
+strings outside the signal safety layer — are enforced today by `tests/test_architecture.py`,
+not by good intentions. The other five govern controller, reward, and MPC code that does not
+exist until M2 or later; each must gain its own architecture test as that code is written.
 
 ---
 
@@ -86,12 +89,17 @@ Zone A. Every source of randomness is seeded from experiment metadata (`AP-06`).
 
 **Default is no comment.** Each one must fall in a category or be deleted.
 
-| Category | Content | Budget |
+| Category | Content | Typical length |
 |---|---|---|
-| PROVENANCE | where a number, formula, or definition came from | 2 lines |
-| GOTCHA | counter-intuitive behaviour, SUMO quirk | 2 lines |
-| DECISION | why this approach rather than the obvious one | 2 lines |
-| CONTRACT | what a module or public interface guarantees | 5 lines, module docstrings and public interfaces only |
+| PROVENANCE | where a number, formula, or definition came from | 1-2 lines |
+| GOTCHA | counter-intuitive behaviour, SUMO quirk | 1-2 lines |
+| DECISION | why this approach rather than the obvious one | 1-2 lines |
+| CONTRACT | what a module or public interface guarantees | up to ~5 lines, module docstrings and public interfaces only |
+
+Lengths are guidance, not a limit enforced by counting. The binding test is whether every
+line carries information the code and its types do not. A comment that keeps growing past
+its guidance is a signal the explanation belongs in `research/` or `docs/` behind a
+decision ID — not a signal to compress it into something cryptic.
 
 Mandatory: every numeric constant gets a PROVENANCE comment.
 Forbidden: `Args:` / `Returns:` blocks; any comment restating the code in English.
@@ -99,6 +107,11 @@ Longer than budget: it belongs in `research/` or `docs/`, referenced by decision
 
 Expect roughly 80% of Zone A functions to carry no comment. `compute_queue_length_m(lane:
 LaneState) -> float` already says everything.
+
+The four categories are a test a comment must pass to earn its place, **not a tagging
+syntax**. Do not prefix comments with `PROVENANCE:` or `DECISION:`. The one exception is
+`GOTCHA:`, which may be written out when the comment warns about behaviour that looks
+wrong but is not — there the label tells a reader to stop and take it seriously.
 
 Zone B is exempt.
 
@@ -176,7 +189,35 @@ having run it. If tests fail, say so with the output. If a step was skipped, say
 
 ---
 
-# 10. What to Read Before Designing
+# 10. Commits and Pull Requests
+
+Commit freely while working. Small, frequent commits are the safest way to work, and a
+review loop depends on being able to see each round separately.
+
+**Regroup them before opening a pull request.** A branch arrives for review as **3 to 6
+commits**, each a coherent unit someone can read on its own — the plan, the toolchain, the
+guardrails, a subsystem, the thing that ties them together, the closing docs. Not one
+commit per fix round, and not one squashed lump either.
+
+The test is whether a reviewer can read `git log --oneline` and see the shape of the work.
+`fix: address review round 2` tells them nothing: it is bookkeeping from a process that is
+over by the time anyone reads it.
+
+The branch tip must be green, and `make check` is run on it after the regroup. Do not claim
+the intermediate commits are individually green unless you checked each one out and ran the
+suite — on a branch that bootstraps its own toolchain, the early commits predate the tools
+and cannot be.
+
+Regrouping is a history rewrite, so it is safe only before the branch is pushed; after
+that, regroup only if the maintainer asks. Use `--no-verify` while regrouping and verify
+the tip afterwards: `pre-commit` stashes unstaged changes before each hook run, which
+manufactures an intermediate state no commit actually represents — a tracked file reverts
+to its old content while untracked files stay, and checks that read the working tree fail
+against a tree that never existed.
+
+---
+
+# 11. What to Read Before Designing
 
 | Task | Read first |
 |---|---|
@@ -193,7 +234,7 @@ passage.
 
 ---
 
-# 11. Conversation
+# 12. Conversation
 
 Discussion with the maintainer is in **Thai**. All code, comments, documents, commit
 messages, and identifiers are in **English** (`PD-D03`).

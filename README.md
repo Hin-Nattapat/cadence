@@ -16,8 +16,8 @@ CADENCE is built around a validated SUMO simulation core with a stable controlle
 so that fixed-time, actuated, Max-Pressure, predictive, and learned controllers can be
 compared on identical networks, demand, safety constraints, and metrics.
 
-> **Status: pre-implementation.** Research and architecture are complete; the codebase is
-> being built from M0. See [`docs/DIRECTION.md`](docs/DIRECTION.md).
+> **Status: M0 complete.** The deterministic SUMO simulation harness is built and tested;
+> M1 (canonical state and metrics) is next. See [`docs/DIRECTION.md`](docs/DIRECTION.md).
 
 ---
 
@@ -68,6 +68,8 @@ Background: [`docs/ORIGIN.md`](docs/ORIGIN.md)
 
 ```
 CLAUDE.md                  working rules, conventions, test strategy
+Makefile                   lint, type, docs-check, test — via `make check`
+pyproject.toml             dependencies, tool configuration
 docs/
   ORIGIN.md                why the project exists; lessons from 2020
   DIRECTION.md             current status, milestones, scenarios, non-goals
@@ -77,7 +79,22 @@ research/
   decisions.yaml           every decision identifier in the project
   CADENCE_*.md             focused research notebooks
 scenarios/<id>/v<N>/       versioned scenario definitions
+src/cadence/               the platform core (Zone A)
+  simulation/              SUMO lifecycle, scenario loader, manifest, events
+tests/                     unit, architecture, and SUMO integration tests
+tools/                     scenario generation, documentation consistency checker
 studies/<NN>-<slug>/       experiments and their results
+```
+
+---
+
+## Getting started
+
+```
+uv sync
+make check
+uv run cadence validate-scenario --scenario scenarios/s0_single_intersection/v1
+uv run cadence run --scenario scenarios/s0_single_intersection/v1 --seed 1
 ```
 
 ---
