@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<routes>
+    <vType id="car" accel="2.6" decel="4.5" sigma="0.0" length="5.0" maxSpeed="13.9"/>
+    <route id="r0" edges="bottom0A0 A0top0"/>
+    <route id="r1" edges="left0A0 A0right0"/>
+    <route id="r2" edges="right0A0 A0left0"/>
+    <route id="r3" edges="top0A0 A0bottom0"/>
+    <flow id="f0" route="r0" type="car" begin="0.00" end="480.00" period="6.00" departLane="free"/>
+    <flow id="f1" route="r1" type="car" begin="0.00" end="480.00" period="6.00" departLane="free"/>
+    <flow id="f2" route="r2" type="car" begin="0.00" end="480.00" period="6.00" departLane="free"/>
+    <flow id="f3" route="r3" type="car" begin="0.00" end="480.00" period="6.00" departLane="free"/>
+</routes>
