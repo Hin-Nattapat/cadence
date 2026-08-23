@@ -98,11 +98,52 @@ Ordered by when they enter, not by expected strength.
 
 ---
 
-# 7. Open Decisions
+# 7. Carried into M1
+
+Recorded at the end of M0 so that M1 starts from a written record rather than someone's
+recollection. The first four are design decisions M0 deliberately did not take, because
+taking them required seeing the raw state SUMO actually returns.
+
+| # | What M0 left | Why it belongs to M1 |
+|---|---|---|
+| 1 | `StepResult` and `EventLog.to_parquet` are shaped for events alone | Canonical state has to come out of the same step. Decide whether `StepResult` grows a payload or a parallel path appears — **before** `append_step(connection.step())` has more callers. A fixed three-column Parquet writer also wants a sibling, not an extension. |
+| 2 | `RunManifest` records no run outcome | Neither terminal simulation time, step count, nor whether the run ended at the horizon or by draining. S0 drains at 520 of its 600 s, and two runs differing in termination reason are indistinguishable from their manifests. `events.parquet` holds only events, so the last step time is recoverable from neither artifact. M1's metrics need that denominator. |
+| 3 | `cadence_dirty` is compared as a plain boolean | Two runs from two different uncommitted working trees compare equal across every reproducible field. A run from a dirty tree now warns on stderr, which was the cheap half; the real decision — fail, warn, or hash the working diff — is M1's. |
+| 4 | `validation.py` is a second Zone A surface handling `sumolib` | It is the only module outside `simulation/sumo/` touching `sumolib.net.Net` and SUMO node types, and `tests/test_architecture.py` bans `traci`/`libsumo` but not `sumolib`. M1's state extraction wants exactly that topology, so either move it under `simulation/sumo/` or ban `sumolib` with a per-file exemption. |
+
+## Deferred minor findings
+
+Triaged at the end of M0 and judged not load-bearing. Recorded rather than discarded.
+
+- `tests/conftest.py` — the `repo_root` fixture is defined and never consumed.
+- `config_digest` is implicitly coupled to `BaseModel.model_dump()`'s output shape; a
+  future Pydantic major could change the digest silently. `uv.lock` is committed, so such
+  a bump is itself a commit.
+- `_HASH_CHUNK_BYTES` carries rationale rather than provenance.
+- **`tools/build_s0_scenario.py` `_approach_pairs` never checks that the winning alignment
+  is near 1**, so on a T-junction or an irregular angle it would silently label the
+  least-bad turn a straight-through movement; `_unit_direction` divides by `hypot` with no
+  zero-length guard. Harmless on S0's symmetric junction — **but this generator is the
+  template for the real OSM intersection at M7, and must be fixed before it is reused.**
+- `ruff format` splits each SUMO `--flag` from its value, so the pairing that carries the
+  meaning of an argument vector is no longer adjacent. A `(flag, value)` tuple list that is
+  flattened would keep each pair atomic.
+- `--no-step-log` and `--duration-log.disable` carry no comment, unlike every other
+  explicitly forced flag.
+- `test_event_is_frozen` asserts on the exception message rather than
+  `isinstance(error, dataclasses.FrozenInstanceError)`.
+- `SumoConnection.__enter__` can leak a SUMO subprocess if `binding.start()` raises after
+  `Popen` — that path is inside traci's own `start()` and is not reachable from
+  `connection.py`.
+
+---
+
+# 8. Open Decisions
 
 | ID | Question | Must be resolved by |
 |---|---|---|
 | `PD-Q01` | Scenario site and demand data source | before M7 |
+| `PD-Q02` | Whether CADENCE needs a replay viewer of its own | not before M8 |
 
 `PD-Q01` includes the choice between an established scenario (InTAS, LuST, MoST) and a Thai
 site, the demand-realism level (L1 / L2 / L3), and how motorcycle-dense traffic is handled.
@@ -110,7 +151,53 @@ Full framing and selection criteria are in the spec, §11.
 
 ---
 
-# 8. Non-Goals
+## PD-Q02 — visualisation, and the state of the SUMO GUI
+
+Lowest priority. Recorded so the evidence does not have to be gathered twice.
+
+**Plots carry more of the load than an animated map, and they arrive nearly free.** M1
+builds the metric registry regardless, so plotting is reading Parquet and drawing. A map
+viewer is a separate project no milestone requires, and no paper contains an animation.
+The four-panel diagnostic that established S0's credibility was matplotlib over
+`--fcd-output`, `--summary-output` and `--tripinfo-output`, and its five measured
+quantities each agreed with the traffic-light program independently.
+
+The one question plots answer poorly is *where* congestion propagates across a network,
+which is the Study 1 thesis — but that question only becomes real at M8. A spillback
+timeline per link, ordered upstream to downstream, shows propagation as a diagonal without
+any map.
+
+**On the SUMO GUI: it is X11-only on macOS, and the situation is better than a stale
+reading suggests.** `sumo-gui` links FOX against X11; there is no Cocoa build, and SUMO's
+"native macOS bundles" are launchers around the same binaries. `eclipse-sumo#17272`
+reports the GUI failing on macOS Tahoe and blames `XQuartz#438` — but **that XQuartz issue
+was closed on 2026-05-18**, and `XQuartz#497`, filed against macOS 26.5.2 specifically, was
+closed on 2026-08-10 with the maintainer stating it is resolved in `2.8.7_beta2`. XQuartz
+is actively maintained: four releases between July and August 2026, 86 issues closed in six
+months, last commit 2026-08-18. A beta build is therefore worth trying before concluding
+the GUI is unavailable, and `2.8.6` stable is not sufficient on 26.5.x.
+
+If a viewer is ever built, three constraints from the M0 measurements apply:
+
+- **It reads a run directory and nothing else** — never `import cadence.simulation`, never
+  SUMO. It is a third kind of thing: not the measuring instrument, not a study, a tool.
+- **FCD does not scale to the browser unconverted.** Measured at 135 bytes per
+  vehicle-record: S0 is 1.9 MB, but an M8 corridor over an hour is 73–244 MB per run and a
+  five-controller five-seed matrix is 1.8–6.1 GB. A conversion step belongs in the design
+  from the start, not after S0 makes the naive approach look fine.
+- **Overlays are blocked on milestones, not on effort.** Network geometry, vehicle
+  animation, traffic-light state and export are possible today. Queue and occupancy
+  overlays need M1's canonical state; a spillback overlay needs M4's metric definition;
+  controller comparison needs more than one controller.
+
+Two things the original sketch omitted and should carry: the manifest's provenance
+(scenario, seed, controller, commit) visible on the frame, since a video without it proves
+nothing about which run produced it; and jumping to an event rather than watching linearly,
+for which `events.parquet` is already the index.
+
+---
+
+# 9. Non-Goals
 
 Not blockers, not on the current roadmap:
 
@@ -136,7 +223,7 @@ layer, never a control requirement.
 
 ---
 
-# 9. Where Things Live
+# 10. Where Things Live
 
 ```
 README.md                             what CADENCE is
