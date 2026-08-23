@@ -132,6 +132,41 @@ ARCH-D12:
 
 
 # ======================================================================
+# Primary architecture principles (CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md §2)
+# ======================================================================
+
+AP-01:
+  statement: "Do not optimize an environment we do not trust."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+AP-02:
+  statement: "The simulation core must have no dependency on RL-specific concepts such as neural networks, replay buffers, PPO, DQN, or reward optimizers."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+AP-03:
+  statement: "Controllers should not directly call traci.lane.* or manipulate raw SUMO traffic-light strings."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+AP-04:
+  statement: "Every external adaptive controller uses the same legal signal-transition layer wherever possible."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+AP-05:
+  statement: "Controller reward/cost/objective is private to the controller; experiment KPIs are calculated independently."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+AP-06:
+  statement: "Scenario, seed, network, demand, controller config, simulator config, and software versions must be explicit experiment metadata."
+  source:    CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md
+  status:    adopted
+
+
+# ======================================================================
 # Cross-method comparison
 # ======================================================================
 
