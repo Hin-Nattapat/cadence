@@ -89,7 +89,7 @@ Ordered by when they enter, not by expected strength.
 
 | Tier | Controller | Milestone | Role |
 |---|---|---|---|
-| 0 | Fixed-time, reasonably tuned | M3 | deterministic reference; must not be deliberately weak (`TC-D04`) |
+| 0 | Fixed-time, reasonably tuned | M3 | deterministic reference; must not be deliberately weak (`TC-D09`, `TC-D10`, `TC-D11`) |
 | 0 | SUMO native actuated | M3 | how far strong local demand-responsive control goes (`TC-D05`) |
 | 1 | PPO | M5 | primary generic RL baseline (`RL-D07`) |
 | 1 | DQN | M5 | discrete-action reference connecting to the RL-TSC literature |

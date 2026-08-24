@@ -75,3 +75,49 @@ def test_check_reports_a_document_reference_to_an_unknown_id(tmp_path):
     (tmp_path / "docs" / "direction.md").write_text("Deferred under XX-Q99.\n")
     problems = check(tmp_path)
     assert any("XX-Q99" in p and "not in the registry" in p for p in problems)
+
+
+def _registry(tmp_path, body: str) -> None:
+    (tmp_path / "research").mkdir(exist_ok=True)
+    (tmp_path / "docs").mkdir(exist_ok=True)
+    (tmp_path / "research" / "decisions.yaml").write_text(body)
+
+
+def test_the_successor_source_may_cite_the_decision_it_supersedes(tmp_path):
+    _registry(
+        tmp_path,
+        'XX-D01:\n  statement: "Old."\n  source:    old.md\n  status:    superseded\n'
+        "  superseded_by: XX-D02\n"
+        'XX-D02:\n  statement: "New."\n  source:    ../docs/successor.md\n  status:    adopted\n',
+    )
+    (tmp_path / "research" / "old.md").write_text("XX-D01 lives here.\n")
+    (tmp_path / "docs" / "successor.md").write_text("XX-D02 supersedes XX-D01.\n")
+
+    assert check(tmp_path) == []
+
+
+def test_any_other_document_may_not_cite_a_superseded_decision(tmp_path):
+    _registry(
+        tmp_path,
+        'XX-D01:\n  statement: "Old."\n  source:    old.md\n  status:    superseded\n'
+        "  superseded_by: XX-D02\n"
+        'XX-D02:\n  statement: "New."\n  source:    ../docs/successor.md\n  status:    adopted\n',
+    )
+    (tmp_path / "research" / "old.md").write_text("XX-D01 lives here.\n")
+    (tmp_path / "docs" / "successor.md").write_text("XX-D02 supersedes XX-D01.\n")
+    (tmp_path / "docs" / "elsewhere.md").write_text("We still rely on XX-D01.\n")
+
+    problems = check(tmp_path)
+    assert any("elsewhere.md" in p and "XX-D01" in p and "superseded" in p for p in problems)
+
+
+def test_superseded_by_must_name_a_registered_decision(tmp_path):
+    _registry(
+        tmp_path,
+        'XX-D01:\n  statement: "Old."\n  source:    old.md\n  status:    superseded\n'
+        "  superseded_by: XX-D99\n",
+    )
+    (tmp_path / "research" / "old.md").write_text("XX-D01 lives here.\n")
+
+    problems = check(tmp_path)
+    assert any("XX-D99" in p and "not in the registry" in p for p in problems)

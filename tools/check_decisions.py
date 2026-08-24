@@ -29,6 +29,7 @@ class Decision:
     statement: str
     source: str
     status: str
+    superseded_by: str | None = None
 
 
 def load_registry(path: Path) -> dict[str, Decision]:
@@ -38,6 +39,7 @@ def load_registry(path: Path) -> dict[str, Decision]:
             id=key,
             statement=value["statement"],
             source=value["source"],
+            superseded_by=value.get("superseded_by"),
             status=value["status"],
         )
         for key, value in raw.items()
@@ -60,6 +62,23 @@ def check(repo_root: Path) -> list[str]:
             continue
         if decision.id not in source_path.read_text():
             problems.append(f"{decision.id}: not found in source — {decision.source}")
+        if decision.superseded_by and decision.superseded_by not in registry:
+            problems.append(
+                f"{decision.id}: superseded_by names {decision.superseded_by}, "
+                "which is not in the registry"
+            )
+
+    # CLAUDE.md section 6 mandates superseding rather than editing: issue a new id, mark the
+    # old one superseded, point it at the replacement. The document recording that
+    # replacement has to name what it replaces, so the successor's source is the one place a
+    # superseded id may still be cited.
+    supersede_records: dict[str, set[str]] = {}
+    for decision in registry.values():
+        successor = registry.get(decision.superseded_by or "")
+        if successor is None:
+            continue
+        record = _resolve_source(registry_path, successor.source).resolve()
+        supersede_records.setdefault(str(record), set()).add(decision.id)
 
     for directory, pattern in SCANNED_PATHS:
         root = repo_root / directory
@@ -72,10 +91,14 @@ def check(repo_root: Path) -> list[str]:
                 location = path.relative_to(repo_root)
                 if cited not in registry:
                     problems.append(f"{location}: cites {cited}, which is not in the registry")
-                elif registry[cited].status not in DEPENDABLE_STATUSES:
-                    problems.append(
-                        f"{location}: depends on {cited}, which is {registry[cited].status}"
-                    )
+                    continue
+                if registry[cited].status in DEPENDABLE_STATUSES:
+                    continue
+                if cited in supersede_records.get(str(path.resolve()), set()):
+                    continue
+                problems.append(
+                    f"{location}: depends on {cited}, which is {registry[cited].status}"
+                )
 
     return problems
 
