@@ -1,0 +1,14 @@
+scenario_id: s0_turning
+scenario_version: 1
+description: >
+  The s0_cross network under an asymmetric turning demand. Every controlled link carries
+  traffic, and every approach lane serves two movements, so shared-lane queue attribution
+  and turn-ratio estimation have something to measure. Integration testing only.
+  Not for research claims.
+network_file: network.net.xml
+demand_file: demand.rou.xml
+begin_s: 0.0
+end_s: 600.0
+step_length_s: 1.0
+time_to_teleport_s: 300.0
+default_seed: 1
