@@ -72,7 +72,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["tests"]
+pythonpath = [".", "tests"]
 addopts = "-q --strict-markers"
 markers = [
     "sumo: starts a real SUMO process; slower than a unit test",
