@@ -82,3 +82,19 @@ def test_command_is_deterministic():
 def test_a_negative_seed_is_rejected():
     with pytest.raises(ValueError, match="seed"):
         build_sumo_command(CONFIG, PATHS, seed=-1)
+
+
+def test_the_command_asks_sumo_for_tripinfo(tmp_path):
+    # ST-D18: M1b's trip metrics have no other source, and the flag was absent since M0.
+    tripinfo_path = tmp_path / "tripinfo.xml"
+    command = build_sumo_command(CONFIG, PATHS, seed=1, use_gui=False, tripinfo_path=tripinfo_path)
+    assert "--tripinfo-output" in command
+    assert str(tripinfo_path) in command
+    # Without this SUMO writes no row for a vehicle still in the network when the run ends,
+    # and under oversaturation that is exactly the most delayed trips.
+    assert "--tripinfo-output.write-unfinished" in command
+
+
+def test_tripinfo_is_omitted_when_no_path_is_given():
+    command = build_sumo_command(CONFIG, PATHS, seed=1)
+    assert "--tripinfo-output" not in command
