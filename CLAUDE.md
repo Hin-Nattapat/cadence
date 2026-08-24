@@ -239,6 +239,12 @@ passage.
 Discussion with the maintainer is in **Thai**. All code, comments, documents, commit
 messages, and identifiers are in **English**.
 
+One exception, and it is the only one: `docs/CODEBASE.md` is written in **Thai**. Its whole
+purpose is that the maintainer can reload the structure of a Python codebase he does not
+work in daily, and a document that fails at that fails entirely. It is an orientation guide,
+not a decision record and not research — nothing depends on it, and it says so at the top.
+Do not translate it back.
+
 ---
 
 # 13. Research and Knowledge Agents
