@@ -55,9 +55,11 @@ extend-immutable-calls = ["typer.Option", "typer.Argument"]
 "traci".msg = "Import the simulator binding through cadence.simulation.sumo.binding (ARCH-D02)."
 "libsumo".msg = "Import the simulator binding through cadence.simulation.sumo.binding (ARCH-D02)."
 "studies".msg = "Zone A must not import Zone B (PD-D07)."
+"sumolib".msg = "Every SUMO surface lives under cadence.simulation.sumo (ST-D12)."
 
 [tool.ruff.lint.per-file-ignores]
 "src/cadence/simulation/sumo/binding.py" = ["TID251"]
+"src/cadence/simulation/sumo/validation.py" = ["TID251"]
 "tests/**" = ["ANN", "TID251"]
 "tools/**" = ["TID251"]
 
