@@ -243,7 +243,8 @@ TC-D03:
 TC-D04:
   statement: "Fixed-time baseline should be reasonably tuned using established traffic-engineering principles."
   source:    CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md
-  status:    adopted
+  status:    superseded
+  superseded_by: TC-D09
 
 TC-D05:
   statement: "CADENCE should include SUMO's native gap-based actuated controller as a reproducible classical baseline."
@@ -553,4 +554,25 @@ ST-D13:
 ST-D14:
   statement: "Canonical traffic state is a controller-parity layer, not a claim of deployment or sensor realism."
   source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+
+# ======================================================================
+# Oversaturated fixed-time baseline
+# (docs/specs/2026-08-24-oversaturated-fixed-time-baseline.md)
+# ======================================================================
+
+TC-D09:
+  statement: "Webster and HCM critical-flow timing may only initialise an undersaturated or near-saturated fixed-time plan; they are not a valid tuning method at or above saturation."
+  source:    ../docs/specs/2026-08-24-oversaturated-fixed-time-baseline.md
+  status:    adopted
+
+TC-D10:
+  statement: "An oversaturated fixed-time baseline is a frozen, scenario-family-specific queue management plan that documents its bottleneck, storage links, timing, and metering, and states throughput-then-queue-placement as its objective."
+  source:    ../docs/specs/2026-08-24-oversaturated-fixed-time-baseline.md
+  status:    adopted
+
+TC-D11:
+  statement: "Fixed-time plans are calibrated on development scenarios and frozen for held-out evaluation, reporting throughput, residual queue, spillback, junction blocking, and queue location alongside delay."
+  source:    ../docs/specs/2026-08-24-oversaturated-fixed-time-baseline.md
   status:    adopted

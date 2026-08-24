@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mode": {"enum": ["lookup", "decision_support"]},
+    "answer": {"type": "string"},
+    "recommended_option": {"type": ["string", "null"]},
+    "recommended_refinement": {"type": ["string", "null"]},
+    "opinion": {"type": ["string", "null"]},
+    "defer_to_user": {"type": "boolean"},
+    "touched_decision_ids": {"type": "array", "items": {"type": "string"}},
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string"},
+          "type": {"enum": ["evidence", "inference", "hypothesis", "decision", "open_question", "opinion"]},
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {"type": "string"},
+                "decision_id": {"type": ["string", "null"]}
+              },
+              "required": ["file", "decision_id"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["text", "type", "sources"],
+        "additionalProperties": false
+      }
+    },
+    "tradeoffs": {"type": "array", "items": {"type": "string"}},
+    "alternatives_rejected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "option": {"type": "string"},
+          "reason": {"type": "string"}
+        },
+        "required": ["option", "reason"],
+        "additionalProperties": false
+      }
+    },
+    "conflicts": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"enum": ["high", "medium", "low"]},
+    "needs_research": {"type": "boolean"},
+    "research_question": {"type": ["string", "null"]}
+  },
+  "required": ["mode", "answer", "recommended_option", "recommended_refinement", "opinion", "defer_to_user", "touched_decision_ids", "claims", "tradeoffs", "alternatives_rejected", "conflicts", "confidence", "needs_research", "research_question"],
+  "additionalProperties": false
+}

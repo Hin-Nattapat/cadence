@@ -237,4 +237,32 @@ passage.
 # 12. Conversation
 
 Discussion with the maintainer is in **Thai**. All code, comments, documents, commit
-messages, and identifiers are in **English** (`PD-D03`).
+messages, and identifiers are in **English**.
+
+---
+
+# 13. Research and Knowledge Agents
+
+Two local Codex CLI agents carry project knowledge and research so Claude does not have to
+hold or produce either from memory. Design: `docs/superpowers/specs/2026-08-23-cli-research-knowledge-agents-design.md`.
+
+Call `uv run python tools/project_agents.py knowledge '<question>'` for project facts,
+rationale, decisions, or option evaluation. Call
+`uv run python tools/project_agents.py research '<question>'` when the user asks for
+research explicitly, or when the Knowledge Agent's answer is missing, contradictory,
+uncited, or plausibly stale. Before an automatic research call, tell the user why.
+
+**Claude does not write research.** Not through `Write`, `Edit`, `Bash`, or any other tool,
+except governance updates to `research/INDEX.md` and `research/decisions.yaml`. A research
+diff is the Research Agent's output; Claude reviews it, reruns the Knowledge Agent against
+the updated corpus, and only then commits.
+
+The Research Agent writes three destinations and nothing else: `research/addenda/*.md`,
+`research/references.bib`, and the temporary handoff ledger. Every other file under
+`research/` is immutable to it, whether or not it currently sources an adopted decision, so
+a correction arrives as a dated addendum rather than an edit to corpus history.
+
+A `PreToolUse` hook (`tools/protect_research_hook.py`, registered in `.claude/settings.json`)
+enforces this for `Write`, `Edit`, `MultiEdit`, and `NotebookEdit`. It does not cover `Bash`: a shell
+command that edits `research/` is not intercepted. That half of the rule is a repository
+rule with no mechanical enforcement.
