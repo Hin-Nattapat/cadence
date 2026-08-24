@@ -6,12 +6,14 @@ check. It is controller-independent by construction (ARCH-D05).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
 import polars as pl
 
+from cadence.simulation.state import CanonicalTrafficState, TeleportEvent
 from cadence.types import VehicleId
 
 
@@ -34,7 +36,8 @@ class SimulationEvent:
 class StepResult:
     time_s: float
     events: tuple[SimulationEvent, ...]
-    expected_remaining_veh: int
+    state: CanonicalTrafficState
+    teleports: tuple[TeleportEvent, ...]
 
 
 @dataclass
@@ -45,8 +48,8 @@ class EventLog:
     def events(self) -> tuple[SimulationEvent, ...]:
         return tuple(self._events)
 
-    def append_step(self, result: StepResult) -> None:
-        self._events.extend(result.events)
+    def append(self, events: Iterable[SimulationEvent]) -> None:
+        self._events.extend(events)
 
     def count(self, kind: EventKind) -> int:
         return sum(1 for event in self._events if event.kind is kind)

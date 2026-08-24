@@ -1,7 +1,7 @@
 # CADENCE — Current Direction
 
 **Document Type:** Living document. Updated as milestones complete.
-**Last updated:** 2026-08-22
+**Last updated:** 2026-08-24
 
 The reasoning behind everything here is in
 `docs/specs/2026-08-22-project-direction.md`. This file is the operational summary.
@@ -13,7 +13,7 @@ The reasoning behind everything here is in
 ```
 Pre-implementation research        complete
 Project direction and conventions  decided  (PD-D01 .. PD-D07)
-Implementation                     M0 complete, M1 not started
+Implementation                     M1a complete, M1b not started
 Current milestone                  M1 — Canonical State + Metrics
 ```
 
@@ -25,6 +25,7 @@ Current milestone                  M1 — Canonical State + Metrics
 |---|---|---|---|
 | **M0** | Simulation Harness | deterministic SUMO lifecycle, TraCI/libsumo wrapper, scenario loader, seed wiring, event capture | done |
 | **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | current |
+| **M1b** | Derived Metrics | queue attribution split, `turn_ratio_sliding_window_v1`, the starvation guard, the residual-bias limitation, derived lane quantities (`queue_length_m`, `storage_capacity_veh`, `available_storage_ratio`) | not started |
 | **M2** | Signal Safety + Controller Contract | controller interface, action types, safety and transition executor, action masks, timeout and fallback | |
 | **M3** | Validation Controllers | tuned fixed-time, SUMO native actuated — the acceptance test for M2 | |
 | **M4** | RL Adapter | Gymnasium adapter, observation builder v1, action mapping, reward v1 | |
@@ -101,30 +102,41 @@ Ordered by when they enter, not by expected strength.
 # 7. Carried into M1
 
 Recorded at the end of M0 so that M1 starts from a written record rather than someone's
-recollection. The first four are design decisions M0 deliberately did not take, because
-taking them required seeing the raw state SUMO actually returns.
+recollection. All four are now taken, at M1a; each row records where.
 
-| # | What M0 left | Why it belongs to M1 |
+| # | What M0 left | Where it landed |
 |---|---|---|
-| 1 | `StepResult` and `EventLog.to_parquet` are shaped for events alone | Canonical state has to come out of the same step. Decide whether `StepResult` grows a payload or a parallel path appears — **before** `append_step(connection.step())` has more callers. A fixed three-column Parquet writer also wants a sibling, not an extension. |
-| 2 | `RunManifest` records no run outcome | Neither terminal simulation time, step count, nor whether the run ended at the horizon or by draining. S0 drains at 520 of its 600 s, and two runs differing in termination reason are indistinguishable from their manifests. `events.parquet` holds only events, so the last step time is recoverable from neither artifact. M1's metrics need that denominator. |
-| 3 | `cadence_dirty` is compared as a plain boolean | Two runs from two different uncommitted working trees compare equal across every reproducible field. A run from a dirty tree now warns on stderr, which was the cheap half; the real decision — fail, warn, or hash the working diff — is M1's. |
-| 4 | `validation.py` is a second Zone A surface handling `sumolib` | It is the only module outside `simulation/sumo/` touching `sumolib.net.Net` and SUMO node types, and `tests/test_architecture.py` bans `traci`/`libsumo` but not `sumolib`. M1's state extraction wants exactly that topology, so either move it under `simulation/sumo/` or ban `sumolib` with a per-file exemption. |
+| 1 | `StepResult` and `EventLog.to_parquet` are shaped for events alone | `StepResult` grew a `state` payload (canonical state); `events.parquet` stays events-only and `RunRecorder` is a sibling writer, not an extension (`ST-D08`). |
+| 2 | `RunManifest` records no run outcome | `terminal_time_s`, `step_count`, and `termination_reason` (`drained` / `horizon` / `aborted`) are recorded on every run (`ST-D10`). |
+| 3 | `cadence_dirty` is compared as a plain boolean | `cadence_dirty_digest` hashes `git diff HEAD` plus `git status --porcelain -uall`; hashed, not rejected (`ST-D11`). |
+| 4 | `validation.py` is a second Zone A surface handling `sumolib` | Moved to `simulation/sumo/validation.py`; every SUMO surface — `traci`, `libsumo`, `sumolib` — now lives under `simulation/sumo/` (`ST-D12`). |
+
+## Carried into M1b
+
+Found by the whole-branch review at the end of M1a, and deliberately not patched there.
+Both are preconditions of M1b's first item, not improvements to schedule after it.
+
+| # | What M1a leaves | Why it belongs to M1b |
+|---|---|---|
+| 1 | The cross-tab's per-lane turn split is unverified (`ST-D22`) | A permutation confined to the movements one lane serves relabels 74% of the table and changes no assertion in the suite. `LaneTurnCount` carries no vehicle key, so route look-ahead and realised exit — two independent measurements of the same quantity — cannot be reconciled. M1b's turn ratio estimator is the first thing that would be validated against this table, so it has to be verified before it is trusted, and the fix is a schema change its consumer should shape. |
+| 2 | The privilege split bounds code, not data (`ST-D23`) | `state/traversal.parquet` carries per-vehicle turn identity and `evaluation/tripinfo.parquet` carries `departLane`; together they reconstruct 89% of the privileged cross-tab's vehicle-steps. The import ban and the allowlist test hold; a file read is fenced by nothing. `ST-D18`'s reasoning is about what a controller could see online, and the partition exists to bound an offline loader — the two have to be reconciled before the first loader is written. |
 
 ## Deferred minor findings
 
 Triaged at the end of M0 and judged not load-bearing. Recorded rather than discarded.
 
-- `tests/conftest.py` — the `repo_root` fixture is defined and never consumed.
+- ~~`tests/conftest.py` — the `repo_root` fixture is defined and never consumed.~~ **Consumed
+  at M1a**, by the integration tests that read a run directory.
 - `config_digest` is implicitly coupled to `BaseModel.model_dump()`'s output shape; a
   future Pydantic major could change the digest silently. `uv.lock` is committed, so such
   a bump is itself a commit.
 - `_HASH_CHUNK_BYTES` carries rationale rather than provenance.
-- **`tools/build_s0_scenario.py` `_approach_pairs` never checks that the winning alignment
-  is near 1**, so on a T-junction or an irregular angle it would silently label the
-  least-bad turn a straight-through movement; `_unit_direction` divides by `hypot` with no
-  zero-length guard. Harmless on S0's symmetric junction — **but this generator is the
-  template for the real OSM intersection at M7, and must be fixed before it is reused.**
+- `tools/build_s0_scenario.py`'s `CAR_MAX_SPEED_MPS = 13.9` is commented as "50 km/h", but
+  50 km/h is 13.888… m/s and `netgenerate` posts 13.89. The fleet is therefore 0.01 m/s
+  faster than every lane it drives on, and 16.8% of measured `mean_speed_mps` rows sit above
+  the posted limit because of it. Found at M1a by the test that first asserted the bound.
+  Not fixed there: correcting the constant regenerates both scenarios and re-measures nine
+  frozen numbers for a hundredth of a metre per second.
 - `ruff format` splits each SUMO `--flag` from its value, so the pairing that carries the
   meaning of an argument vector is no longer adjacent. A `(flag, value)` tuple list that is
   flattened would keep each pair atomic.

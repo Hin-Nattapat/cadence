@@ -1,14 +1,13 @@
 import polars as pl
 
-from cadence.simulation.events import EventKind, EventLog, SimulationEvent, StepResult
+from cadence.simulation.events import EventKind, EventLog, SimulationEvent
 
 
-def _step(time_s, kinds):
-    events = tuple(
+def _events(time_s, kinds):
+    return tuple(
         SimulationEvent(time_s=time_s, kind=kind, vehicle_id=f"v{index}")
         for index, kind in enumerate(kinds)
     )
-    return StepResult(time_s=time_s, events=events, expected_remaining_veh=len(kinds))
 
 
 def test_event_is_frozen():
@@ -27,15 +26,15 @@ def test_event_is_frozen():
 
 def test_log_accumulates_events_in_order():
     log = EventLog()
-    log.append_step(_step(1.0, [EventKind.DEPARTED]))
-    log.append_step(_step(2.0, [EventKind.ARRIVED, EventKind.TELEPORT_STARTED]))
+    log.append(_events(1.0, [EventKind.DEPARTED]))
+    log.append(_events(2.0, [EventKind.ARRIVED, EventKind.TELEPORT_STARTED]))
     assert [event.time_s for event in log.events] == [1.0, 2.0, 2.0]
 
 
 def test_log_counts_by_kind():
     log = EventLog()
-    log.append_step(_step(1.0, [EventKind.DEPARTED, EventKind.DEPARTED]))
-    log.append_step(_step(2.0, [EventKind.ARRIVED]))
+    log.append(_events(1.0, [EventKind.DEPARTED, EventKind.DEPARTED]))
+    log.append(_events(2.0, [EventKind.ARRIVED]))
     assert log.count(EventKind.DEPARTED) == 2
     assert log.count(EventKind.ARRIVED) == 1
     assert log.count(EventKind.COLLISION) == 0
@@ -43,8 +42,8 @@ def test_log_counts_by_kind():
 
 def test_log_writes_readable_parquet(tmp_path):
     log = EventLog()
-    log.append_step(_step(1.0, [EventKind.DEPARTED]))
-    log.append_step(_step(2.0, [EventKind.TELEPORT_STARTED]))
+    log.append(_events(1.0, [EventKind.DEPARTED]))
+    log.append(_events(2.0, [EventKind.TELEPORT_STARTED]))
     output = tmp_path / "events.parquet"
     log.to_parquet(output)
 

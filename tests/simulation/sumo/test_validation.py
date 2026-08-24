@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from cadence.simulation.scenario import ScenarioPaths, load_scenario
-from cadence.simulation.validation import validate_network
+from cadence.simulation.sumo.validation import validate_network
 
-S0_ROOT = Path(__file__).resolve().parents[2] / "scenarios" / "s0_single_intersection" / "v1"
+S0_ROOT = Path(__file__).resolve().parents[3] / "scenarios" / "s0_single_intersection" / "v1"
 
 
 def test_s0_is_valid():

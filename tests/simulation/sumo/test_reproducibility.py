@@ -66,3 +66,14 @@ def test_the_manifest_records_the_scenario_content_hashes(tmp_path):
     assert len(manifest["demand_sha256"]) == 64
     assert manifest["sumo_version"] == "1.27.1"
     assert manifest["seed"] == 1
+
+
+def test_both_bindings_write_byte_identical_artifacts(tmp_path, repo_root):
+    scenario = repo_root / "scenarios/s0_turning/v1"
+    first = run_scenario(scenario, tmp_path / "libsumo", seed=1, binding=BindingKind.LIBSUMO)
+    second = run_scenario(scenario, tmp_path / "traci", seed=1, binding=BindingKind.TRACI)
+
+    relatives = sorted(path.relative_to(first) for path in first.rglob("*.parquet"))
+    assert relatives, "the run wrote no parquet at all"
+    for relative in relatives:
+        assert (first / relative).read_bytes() == (second / relative).read_bytes(), relative
