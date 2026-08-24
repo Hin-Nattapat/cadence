@@ -43,7 +43,7 @@ question, or a new contribution hypothesis — never by "we should read more".
 
 # 3. Decision Registry
 
-`research/decisions.yaml` is the authoritative index of every decision identifier: 101
+`research/decisions.yaml` is the authoritative index of every decision identifier: 110
 entries, validated against the source documents.
 
 ```
@@ -55,7 +55,7 @@ TC-D          11   traffic engineering and actuated control (TC-D04 superseded)
 MP-D / MP-H   17   Max-Pressure
 MPC-D / MPC-H 15   optimization and MPC
 RL-D           8   reinforcement learning
-ST-D          14   M1a canonical state
+ST-D          23   M1a canonical state (ST-D03, ST-D07, ST-D20 superseded)
 SIM-D          0   simulation foundation (allocated during M0)
 ```
 

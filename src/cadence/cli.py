@@ -8,12 +8,13 @@ from pathlib import Path
 
 import typer
 
+from cadence.simulation.artifacts import RunRecorder
 from cadence.simulation.events import EventLog
-from cadence.simulation.manifest import RunManifest, build_manifest
+from cadence.simulation.manifest import RunManifest, TerminationReason, build_manifest
 from cadence.simulation.scenario import load_scenario
 from cadence.simulation.sumo.binding import BindingKind
 from cadence.simulation.sumo.connection import SumoConnection
-from cadence.simulation.validation import validate_network
+from cadence.simulation.sumo.validation import validate_network
 
 app = typer.Typer(help="CADENCE traffic control experimentation platform.")
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -39,10 +40,37 @@ def run_scenario(
     config, paths = load_scenario(scenario_root)
     started = datetime.now(UTC).isoformat()
 
+    stamp = started.replace(":", "").replace("-", "")[:15]
+    run_dir = output_root / (
+        f"{stamp}__{config.scenario_id}-v{config.scenario_version}"
+        f"__{NO_CONTROLLER_ID}-{NO_CONTROLLER_VERSION}__seed{seed}"
+    )
+    # exist_ok=False on purpose: the stamp is second-resolution, so two runs of the same
+    # scenario and seed starting in the same second would otherwise clobber the first's
+    # manifest and events. Losing an artifact silently is worse than failing loudly.
+    run_dir.mkdir(parents=True, exist_ok=False)
+
     log = EventLog()
-    with SumoConnection(config, paths, seed=seed, binding=binding) as connection:
+    steps = 0
+    tripinfo_xml = run_dir / "tripinfo.xml"
+    with SumoConnection(
+        config, paths, seed=seed, binding=binding, tripinfo_path=tripinfo_xml
+    ) as connection:
+        recorder = RunRecorder(run_dir, connection.topology)
         while not connection.is_finished():
-            log.append_step(connection.step())
+            result = connection.step()
+            log.append(result.events)
+            recorder.record(result.state, result.teleports, connection.read_ground_truth())
+            steps += 1
+        terminal_time_s = connection.time_s()
+        unmatched_traversal_count = connection.unmatched_traversals()
+        termination_reason = connection.termination_reason()
+
+    if termination_reason is None:
+        # The loop only exits when is_finished() is true, so neither condition holding means
+        # something stopped it that nobody modelled. Record that honestly rather than
+        # refusing to write a manifest for a run that did happen.
+        termination_reason = TerminationReason.ABORTED
 
     finished = datetime.now(UTC).isoformat()
     manifest = build_manifest(
@@ -53,21 +81,23 @@ def run_scenario(
         binding=binding,
         controller_id=NO_CONTROLLER_ID,
         controller_version=NO_CONTROLLER_VERSION,
+        terminal_time_s=terminal_time_s,
+        step_count=steps,
+        unmatched_traversal_count=unmatched_traversal_count,
+        termination_reason=termination_reason,
         started_at_utc=started,
         finished_at_utc=finished,
     )
 
-    stamp = started.replace(":", "").replace("-", "")[:15]
-    run_dir = output_root / (
-        f"{stamp}__{config.scenario_id}-v{config.scenario_version}"
-        f"__{manifest.controller_id}-{manifest.controller_version}__seed{seed}"
-    )
-    # exist_ok=False on purpose: the stamp is second-resolution, so two runs of the same
-    # scenario and seed starting in the same second would otherwise clobber the first's
-    # manifest and events. Losing an artifact silently is worse than failing loudly.
-    run_dir.mkdir(parents=True, exist_ok=False)
-    (run_dir / "manifest.json").write_text(manifest.model_dump_json(indent=2) + "\n")
     log.to_parquet(run_dir / "events.parquet")
+    recorder.write()
+    recorder.write_tripinfo(tripinfo_xml)
+    tripinfo_xml.unlink()
+    # Last, so that the manifest's presence means the run finished. run_dir is created
+    # before SUMO starts, so a run that dies mid-loop leaves a directory behind; without
+    # this ordering it would leave one carrying a complete-looking manifest over a partial
+    # or absent set of artifacts, which is the one state a reader cannot detect.
+    (run_dir / "manifest.json").write_text(manifest.model_dump_json(indent=2) + "\n")
     return run_dir
 
 

@@ -499,7 +499,8 @@ ST-D02:
 ST-D03:
   statement: "Canonical state carries only quantities the simulator reports directly; every derived quantity belongs to M1b."
   source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
-  status:    adopted
+  status:    superseded
+  superseded_by: ST-D17
 
 ST-D04:
   statement: "Signal state is a typed enum decoded inside simulation/sumo/; no lamp string leaves that package, including into an artifact."
@@ -519,7 +520,8 @@ ST-D06:
 ST-D07:
   statement: "Traversal identity is the (incoming lane, outgoing lane) transition, not presence on a via lane."
   source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
-  status:    adopted
+  status:    superseded
+  superseded_by: ST-D16
 
 ST-D08:
   statement: "Run artifacts are partitioned into topology/, state/, and ground_truth/; events.parquet keeps its M0 schema and traversals get a sibling table."
@@ -575,4 +577,50 @@ TC-D10:
 TC-D11:
   statement: "Fixed-time plans are calibrated on development scenarios and frozen for held-out evaluation, reporting throughput, residual queue, spillback, junction blocking, and queue location alongside delay."
   source:    ../docs/specs/2026-08-24-oversaturated-fixed-time-baseline.md
+  status:    adopted
+
+ST-D15:
+  statement: "Canonical state carries a movement layer and the step's traversals, so a controller can estimate turn ratios online without reaching for privileged data."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D16:
+  statement: "Traversal identity is the (incoming lane, outgoing edge) transition; the connection is recorded when the exit lane resolves to one and left null when the vehicle changed lane inside the junction."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D17:
+  statement: "Canonical state carries only quantities the simulator reports directly; every derived interpretive quantity belongs to M1b, while topology identity and observable traversal are derivations M1a owns."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D18:
+  statement: "Post-hoc per-trip evaluation data is not privileged: tripinfo lives in evaluation/, and --tripinfo-output is enabled from M1a."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D19:
+  statement: "The run records the signal program definition, the lane a teleport left from, and the cross-tab's unattributed residual, so no question M1b through M9 can ask requires re-running the simulation."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D20:
+  statement: "The cross-tab's checkable successor invariant is at the edge, not the lane: a vehicle may occupy a lane its route cannot use, because departure and lane changing place it there before it reaches the stop line."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    superseded
+  superseded_by: ST-D21
+
+ST-D21:
+  statement: "Checking the cross-tab takes three assertions, not one: reachability at the edge, a bound on off-lane presence, and the off-lane pairs pinned by identity and volume. The edge check alone has no turn resolution where every lane serves a subset of its approach's movements."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D22:
+  statement: "The cross-tab's per-lane turn split is unverified at M1a: a permutation confined to the movements one lane serves changes no assertion in the suite, because LaneTurnCount carries no vehicle key and so cannot be reconciled against the traversal stream. M1b must verify it before validating anything against it."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D23:
+  statement: "The run directory is a three-way split, not a two-way one: the import ban fences ground_truth/ from code, but state/ and evaluation/ together reconstruct most of it, so an offline loader is bounded by nothing. Whether that is acceptable is M1b's to decide with its first real consumer."
+  source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
   status:    adopted
