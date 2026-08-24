@@ -182,7 +182,7 @@ The schema supports both modes with these logical fields:
   "recommended_refinement": "string | null",
   "opinion": "string | null",
   "defer_to_user": false,
-  "touched_decision_ids": ["ST-D03"],
+  "touched_decision_ids": ["PD-D02"],
   "claims": [
     {
       "text": "string",
