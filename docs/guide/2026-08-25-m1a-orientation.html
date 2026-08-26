@@ -1,0 +1,456 @@
+<title>เครื่องมือวัด CADENCE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Sarabun:wght@400;600&display=swap">
+
+<style>
+  /* Light is the base set. Every colour the page uses is defined here first. */
+  :root {
+    --paper:      #F2F3F0;
+    --card:       #FFFFFF;
+    --ink:        #14181B;
+    --ink-soft:   #4A545C;
+    --ink-faint:  #7D8891;
+    --rule:       #D8DBD6;
+    --rule-firm:  #B9BEB8;
+
+    --ink-blue:   #2B4A6F;   /* drafting ink — the structural accent */
+    --ink-blue-w: #E7ECF3;   /* its wash */
+
+    --lamp-green: #2E7D4F;
+    --lamp-amber: #A8710C;
+    --lamp-red:   #A93B2C;
+    --amber-wash: #F7EEDC;
+    --green-wash: #E4EFE8;
+
+    --shadow: 0 1px 2px rgba(20, 24, 27, .06), 0 8px 24px -16px rgba(20, 24, 27, .28);
+
+    --sans:  "Sarabun", "Overpass", system-ui, sans-serif;
+    --disp:  "Overpass", "Sarabun", system-ui, sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* System-dark: no stamp on the root, so only the media query separates it. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #101418;
+      --card:       #171C21;
+      --ink:        #E6EAED;
+      --ink-soft:   #A3ADB6;
+      --ink-faint:  #78838C;
+      --rule:       #262D34;
+      --rule-firm:  #38424A;
+
+      --ink-blue:   #7FA9D8;
+      --ink-blue-w: #1A2431;
+
+      --lamp-green: #64BC8B;
+      --lamp-amber: #D8A33F;
+      --lamp-red:   #DC7B6B;
+      --amber-wash: #2A2113;
+      --green-wash: #16241C;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+    }
+  }
+
+  /* Explicit dark choice wins over a light OS. */
+  :root[data-theme="dark"] {
+    --paper:      #101418;
+    --card:       #171C21;
+    --ink:        #E6EAED;
+    --ink-soft:   #A3ADB6;
+    --ink-faint:  #78838C;
+    --rule:       #262D34;
+    --rule-firm:  #38424A;
+
+    --ink-blue:   #7FA9D8;
+    --ink-blue-w: #1A2431;
+
+    --lamp-green: #64BC8B;
+    --lamp-amber: #D8A33F;
+    --lamp-red:   #DC7B6B;
+    --amber-wash: #2A2113;
+    --green-wash: #16241C;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 3rem) 6rem;
+  }
+
+  /* ── masthead ────────────────────────────────────────────── */
+  .mast { border-bottom: 2px solid var(--ink); padding-bottom: 1.4rem; margin-bottom: 2.6rem; }
+
+  .mast-row {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: .5rem 1.1rem; margin-bottom: .9rem;
+  }
+  .wordmark {
+    font-family: var(--disp); font-weight: 900; font-size: clamp(2.1rem, 6vw, 3.1rem);
+    letter-spacing: -.02em; line-height: 1; margin: 0;
+  }
+  .lamps { display: inline-flex; gap: .34rem; align-self: center; }
+  .lamp { width: .62rem; height: .62rem; border-radius: 50%; }
+  .lamp.r { background: var(--lamp-red); }
+  .lamp.a { background: var(--lamp-amber); }
+  .lamp.g { background: var(--lamp-green); }
+
+  .stamp {
+    margin-left: auto; font-family: var(--mono); font-size: .68rem;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .standfirst {
+    font-size: clamp(1.02rem, 2.3vw, 1.16rem); color: var(--ink-soft);
+    max-width: 46ch; margin: 0;
+  }
+
+  /* ── section scaffolding ─────────────────────────────────── */
+  section { margin-top: clamp(2.8rem, 6vw, 4.2rem); }
+
+  .head { display: flex; align-items: baseline; gap: .85rem; margin-bottom: 1.1rem; }
+  .num {
+    font-family: var(--mono); font-size: .74rem; font-weight: 600;
+    color: var(--ink-blue); letter-spacing: .06em;
+    padding-top: .35rem; flex: none;
+  }
+  h2 {
+    font-family: var(--disp); font-weight: 700; font-size: clamp(1.32rem, 3.4vw, 1.62rem);
+    letter-spacing: -.01em; line-height: 1.3; margin: 0; text-wrap: balance;
+  }
+
+  p { max-width: 64ch; margin: 0 0 1rem; }
+  p:last-child { margin-bottom: 0; }
+  .lede { font-size: 1.06rem; }
+  strong { font-weight: 600; }
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--ink-blue-w); color: var(--ink);
+    padding: .1em .35em; border-radius: 3px;
+  }
+
+  /* ── callout ─────────────────────────────────────────────── */
+  .callout {
+    display: flex; gap: .95rem; align-items: flex-start;
+    background: var(--amber-wash);
+    border: 1px solid var(--rule-firm);
+    border-left: 4px solid var(--lamp-amber);
+    border-radius: 4px; padding: 1.05rem 1.2rem; margin: 1.5rem 0;
+  }
+  .callout .mark {
+    font-family: var(--mono); font-size: .68rem; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--lamp-amber); flex: none; padding-top: .34rem;
+  }
+  .callout p { margin: 0; max-width: 58ch; }
+
+  /* ── the pipeline diagram ────────────────────────────────── */
+  .flow { display: flex; flex-direction: column; gap: 0; margin: 1.6rem 0 .5rem; }
+
+  .stage {
+    background: var(--card); border: 1px solid var(--rule-firm);
+    border-radius: 5px; padding: .95rem 1.15rem; box-shadow: var(--shadow);
+  }
+  .stage-label {
+    font-family: var(--mono); font-size: .69rem; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: .5rem;
+  }
+  .stage-title {
+    font-family: var(--mono); font-size: .95rem; font-weight: 600;
+    color: var(--ink); line-height: 1.5;
+  }
+  .stage-note { font-size: .88rem; color: var(--ink-soft); line-height: 1.6; margin-top: .3rem; }
+
+  .stage.fenced {
+    border: 2px solid var(--ink-blue); background: var(--ink-blue-w);
+    position: relative;
+  }
+  .fence-tag {
+    position: absolute; top: -.72rem; right: .9rem;
+    background: var(--ink-blue); color: var(--card);
+    font-family: var(--mono); font-size: .62rem; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: .16rem .5rem; border-radius: 3px;
+  }
+  :root[data-theme="dark"] .fence-tag { color: #101418; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .fence-tag { color: #101418; }
+  }
+
+  .arrow {
+    align-self: center; color: var(--ink-faint);
+    font-family: var(--mono); font-size: 1rem; line-height: 1;
+    padding: .5rem 0; display: flex; flex-direction: column;
+    align-items: center; gap: .25rem;
+  }
+  .arrow span { font-size: .72rem; letter-spacing: .04em; }
+
+  .inner-steps {
+    display: flex; flex-direction: column; gap: .38rem;
+    margin-top: .7rem; padding-top: .7rem; border-top: 1px dashed var(--rule-firm);
+  }
+  .step { display: flex; gap: .7rem; font-size: .87rem; color: var(--ink-soft); line-height: 1.55; }
+  .step b {
+    font-family: var(--mono); font-size: .8rem; font-weight: 600;
+    color: var(--ink); flex: none; min-width: 8.5rem;
+  }
+  @media (max-width: 34rem) {
+    .step { flex-direction: column; gap: .1rem; }
+    .step b { min-width: 0; }
+  }
+
+  /* ── two worlds ──────────────────────────────────────────── */
+  .worlds { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+  .world { border-radius: 5px; padding: 1.15rem 1.25rem; border: 1px solid var(--rule-firm); }
+  .world.seen { background: var(--green-wash); border-left: 4px solid var(--lamp-green); }
+  .world.hidden { background: var(--amber-wash); border-left: 4px solid var(--lamp-amber); }
+  .world h3 {
+    font-family: var(--disp); font-weight: 700; font-size: 1.02rem;
+    margin: 0 0 .15rem; letter-spacing: -.005em;
+  }
+  .world .dir {
+    font-family: var(--mono); font-size: .74rem; color: var(--ink-faint);
+    margin-bottom: .75rem;
+  }
+  .world p { font-size: .92rem; margin: 0 0 .6rem; max-width: none; }
+  .world .verdict {
+    font-family: var(--mono); font-size: .78rem; font-weight: 600;
+    margin-top: .85rem; padding-top: .7rem; border-top: 1px solid var(--rule-firm);
+  }
+  .world.seen .verdict { color: var(--lamp-green); }
+  .world.hidden .verdict { color: var(--lamp-amber); }
+
+  /* ── milestone strip ─────────────────────────────────────── */
+  .track { margin: 1.5rem 0 .5rem; overflow-x: auto; }
+  .track-inner { display: flex; gap: 2px; min-width: 34rem; }
+  .ms {
+    flex: 1; padding: .7rem .55rem .8rem; text-align: center;
+    background: var(--card); border: 1px solid var(--rule);
+    border-bottom: 3px solid var(--rule-firm);
+  }
+  .ms:first-child { border-radius: 4px 0 0 4px; }
+  .ms:last-child  { border-radius: 0 4px 4px 0; }
+  .ms .id {
+    font-family: var(--mono); font-size: .82rem; font-weight: 600;
+    display: block; margin-bottom: .12rem;
+  }
+  .ms .what { font-size: .68rem; color: var(--ink-faint); line-height: 1.35; display: block; }
+  .ms.done { border-bottom-color: var(--lamp-green); }
+  .ms.done .id { color: var(--lamp-green); }
+  .ms.now {
+    border-bottom-color: var(--lamp-amber);
+    background: var(--amber-wash); border-color: var(--lamp-amber);
+  }
+  .ms.now .id { color: var(--lamp-amber); }
+
+  /* ── glossary table ──────────────────────────────────────── */
+  .tablewrap { overflow-x: auto; margin: 1.4rem 0 .5rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 30rem; font-size: .92rem; }
+  th, td { text-align: left; padding: .62rem .8rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: .69rem; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule-firm);
+  }
+  td:first-child { font-family: var(--mono); font-size: .84rem; white-space: nowrap; color: var(--ink); }
+  td:nth-child(2) { color: var(--ink-soft); }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── unfinished list ─────────────────────────────────────── */
+  .open { display: flex; flex-direction: column; gap: .9rem; margin: 1.4rem 0 .5rem; }
+  .open-item {
+    display: flex; gap: .95rem; align-items: flex-start;
+    border-left: 3px solid var(--lamp-red); padding-left: .95rem;
+  }
+  .open-item .tag {
+    font-family: var(--mono); font-size: .76rem; font-weight: 600;
+    color: var(--lamp-red); flex: none; min-width: 4.6rem; padding-top: .12rem;
+  }
+  .open-item p { font-size: .93rem; margin: 0; }
+  @media (max-width: 34rem) {
+    .open-item { flex-direction: column; gap: .2rem; }
+  }
+
+  footer {
+    margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: .76rem; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.4rem;
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="mast">
+    <div class="mast-row">
+      <h1 class="wordmark">CADENCE</h1>
+      <span class="lamps"><i class="lamp r"></i><i class="lamp a"></i><i class="lamp g"></i></span>
+      <span class="stamp">M1a เสร็จ · 25 ส.ค. 2026</span>
+    </div>
+    <p class="standfirst">ตอนนี้เราสร้าง <strong>เครื่องมือวัด</strong> เสร็จแล้ว ยังไม่มีตัวควบคุมไฟจราจรสักตัวเดียว</p>
+  </header>
+
+  <section>
+    <div class="head"><span class="num">01</span><h2>มันคืออะไร</h2></div>
+    <p class="lede">CADENCE รันการจำลองจราจรบน SUMO แล้วแปลงแต่ละรอบเป็น <strong>โฟลเดอร์ข้อมูลที่อธิบายตัวเองได้</strong> — เปิดดูแล้วรู้เลยว่ารันด้วยถนนไหน seed อะไร โค้ด commit ไหน และเกิดอะไรขึ้นทุกวินาที</p>
+    <p>ไฟจราจรตอนนี้ยังวิ่งโปรแกรมตายตัวที่ SUMO มีมาให้ ไม่มีอะไรตัดสินใจอะไรเลย สิ่งที่เราสร้างคือโค้ดที่ <strong>เฝ้าดูแล้วจดบันทึก</strong> — เลนไหนมีรถกี่คัน หยุดกี่คัน ไฟเป็นสีอะไร ทุกวินาที ในรูปแบบที่ไม่ผูกกับ SUMO</p>
+    <div class="callout">
+      <span class="mark">ทำไมต้องอันนี้ก่อน</span>
+      <p>ถ้าเครื่องมือวัดผิด งานทดลองทุกชิ้นที่เคยใช้มันเป็นโมฆะหมด — รวมถึงงานที่ยังไม่ได้ทำ นั่นคือเหตุผลที่ M1a ใช้เวลาไปกับการพิสูจน์ว่ามันวัดถูก มากกว่าการเขียนโค้ดให้มันวัดได้</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">02</span><h2>หนึ่งรอบการรัน ในภาพเดียว</h2></div>
+    <p>ตามอันนี้รอบเดียว แล้วโค้ดที่เหลือจะอ่านออกเอง</p>
+
+    <div class="flow">
+      <div class="stage">
+        <div class="stage-label">นำเข้า</div>
+        <div class="stage-title">scenarios/s0_turning/v1/</div>
+        <div class="stage-note">ถนน · ความต้องการเดินทาง · ค่าตั้งต้น — สามไฟล์ที่แก้ไม่ได้ และถูกแฮชไว้เพื่อพิสูจน์ทีหลังว่าใช้ไบต์ไหน</div>
+      </div>
+
+      <div class="arrow">↓</div>
+
+      <div class="stage fenced">
+        <span class="fence-tag">กำแพง</span>
+        <div class="stage-label">simulation/sumo/ — แพ็กเกจเดียวที่แตะ SUMO ได้</div>
+        <div class="stage-title">SumoConnection</div>
+        <div class="inner-steps">
+          <div class="step"><b>ตอนเปิด</b><span>สั่ง SUMO เริ่มทำงาน แล้วอ่านรูปร่างถนน <em>ครั้งเดียว</em> — เลน, การเชื่อมต่อ, movement, phase ของไฟ</span></div>
+          <div class="step"><b>ทุกวินาที</b><span>เดินการจำลองไปหนึ่ง step แล้วดึงออกมา: รถบนเลน · สัญญาณไฟ · ใครข้ามแยกไปแล้ว · ใครถูก teleport</span></div>
+          <div class="step"><b>ตอนปิด</b><span>ปิด SUMO และบอกว่ารันจบเพราะรถหมด หรือชนเพดานเวลา</span></div>
+        </div>
+      </div>
+
+      <div class="arrow">↓<span>ข้ามกำแพงมาแล้ว — ไม่มี SUMO อยู่ในนี้อีกเลย</span></div>
+
+      <div class="stage">
+        <div class="stage-label">ชนิดข้อมูลกลาง</div>
+        <div class="stage-title">CanonicalTrafficState</div>
+        <div class="stage-note">ภาพนิ่งของหนึ่งวินาที แก้ไม่ได้ ประกอบด้วยสถานะของ เลน · movement · แยก · ทั้งเครือข่าย นี่คือสิ่งที่ตัวควบคุมจะได้รับใน M2</div>
+      </div>
+
+      <div class="arrow">↓</div>
+
+      <div class="stage">
+        <div class="stage-label">ผลลัพธ์</div>
+        <div class="stage-title">20260825T…__s0_turning-v1__none-v1__seed1/</div>
+        <div class="inner-steps">
+          <div class="step"><b>manifest.json</b><span>commit · seed · เวอร์ชัน · รันจบยังไง — เขียนเป็นอันสุดท้าย การมีอยู่ของมันจึงแปลว่ารันจบจริง</span></div>
+          <div class="step"><b>topology/</b><span>รูปร่างถนน เพื่อให้โฟลเดอร์นี้ไม่ต้องพึ่งไฟล์อื่นเลย</span></div>
+          <div class="step"><b>state/</b><span>สิ่งที่ตัวควบคุมมีสิทธิ์เห็น รายวินาที</span></div>
+          <div class="step"><b>ground_truth/</b><span>สิ่งที่ตัวควบคุมห้ามเห็น</span></div>
+          <div class="step"><b>evaluation/</b><span>ข้อมูลรายเที่ยว หลังจบ ไม่ใช่ทั้งสองอย่างข้างบน</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">03</span><h2>กำแพงเดียวที่ต้องจำ</h2></div>
+    <p><strong>ห้ามโค้ดนอกโฟลเดอร์ <code>simulation/sumo/</code> เรียกใช้ SUMO</strong> ไม่ว่าจะ <code>traci</code>, <code>libsumo</code> หรือ <code>sumolib</code> — และมีเทสต์บังคับอยู่จริง ไม่ใช่แค่ตกลงกันไว้</p>
+    <p>ผลคือถ้าวันหนึ่งเปลี่ยนไปใช้ตัวจำลองอื่น <strong>มีแค่โฟลเดอร์เดียวที่ต้องเขียนใหม่</strong> ส่วนที่เหลือทั้งโปรเจกต์ไม่รู้จัก SUMO เลยด้วยซ้ำ</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">04</span><h2>สองโลกของข้อมูล</h2></div>
+    <p>แนวคิดที่สำคัญที่สุดในโปรเจกต์ และเป็นเหตุผลที่โฟลเดอร์ผลลัพธ์ถูกแบ่ง</p>
+
+    <div class="worlds">
+      <div class="world seen">
+        <h3>เห็นได้จริง</h3>
+        <div class="dir">state/</div>
+        <p>เลนนี้มีรถ 8 คัน หยุดอยู่ 5 คัน ความเร็วเฉลี่ยเท่านี้ ไฟเป็นสีเขียว</p>
+        <p>เซนเซอร์จริงบนถนนรู้ได้หมด</p>
+        <div class="verdict">ตัวควบคุมใช้ได้ทั้งหมด</div>
+      </div>
+      <div class="world hidden">
+        <h3>รู้ได้แค่ในโปรแกรมจำลอง</h3>
+        <div class="dir">ground_truth/</div>
+        <p>ใน 5 คันที่จอดรอนั้น <strong>มีกี่คันที่ตั้งใจจะเลี้ยวซ้าย</strong></p>
+        <p>ไม่มีเซนเซอร์ไหนในโลกตอบได้ เราเก็บไว้เพื่อตรวจสอบว่าตัวประมาณค่าทำงานถูก</p>
+        <div class="verdict">ตัวควบคุมอ่าน = โกง ผลเป็นโมฆะ</div>
+      </div>
+    </div>
+
+    <p>มีสามกลไกกันไว้ทับซ้อนกัน: <strong>ห้าม import</strong> · <strong>บัญชีรายชื่อไฟล์แบบตรงเป๊ะ</strong> (ขยายได้เฉพาะเมื่อแก้โดยเจตนา) · และ <strong>เมธอดที่ต้องเรียกด้วยชื่อ</strong> ไม่ยัดมาให้พร้อมของอย่างอื่น การเอื้อมไปหยิบจึงเห็นชัดตอน review</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">05</span><h2>อยู่ตรงไหนของแผน</h2></div>
+    <div class="track">
+      <div class="track-inner">
+        <div class="ms done"><span class="id">M0</span><span class="what">วงจรชีวิต SUMO</span></div>
+        <div class="ms done"><span class="id">M1a</span><span class="what">สถานะกลาง</span></div>
+        <div class="ms now"><span class="id">M1b</span><span class="what">ตัวชี้วัด</span></div>
+        <div class="ms"><span class="id">M2</span><span class="what">สัญญาตัวควบคุม</span></div>
+        <div class="ms"><span class="id">M3</span><span class="what">ตัวควบคุมพื้นฐาน</span></div>
+        <div class="ms"><span class="id">M4–5</span><span class="what">RL + PPO</span></div>
+        <div class="ms"><span class="id">M6–7</span><span class="what">ถนนจริง</span></div>
+        <div class="ms"><span class="id">M8–9</span><span class="what">โครงข่าย</span></div>
+      </div>
+    </div>
+    <p><strong>ตัวควบคุมตัวแรกเกิดได้ที่ M2</strong> ก่อนหน้านั้นคือการสร้างพื้นให้มันยืน</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">06</span><h2>Python ที่จะเจอบ่อยที่สุด</h2></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>ในโค้ด</th><th>คุณรู้จักในชื่อ</th></tr></thead>
+        <tbody>
+          <tr><td>@dataclass(frozen=True)</td><td>readonly struct — สร้างแล้วแก้ไม่ได้ ส่งด้วยค่า</td></tr>
+          <tr><td>NewType("LaneId", str)</td><td>branded type ของ TS / <code>type LaneId string</code> ของ Go</td></tr>
+          <tr><td>with … as conn:</td><td><code>defer conn.Close()</code> — เก็บกวาดตอนออกเสมอ แม้พัง</td></tr>
+          <tr><td>uv run …</td><td>npx — รันข้างใน environment ของโปรเจกต์</td></tr>
+          <tr><td>mypy --strict</td><td>tsc --strict</td></tr>
+          <tr><td>ruff</td><td>eslint + prettier</td></tr>
+          <tr><td>polars</td><td>ตารางข้อมูล อ่านเขียน Parquet</td></tr>
+          <tr><td>pydantic</td><td>zod — ตรวจค่าตอนรันจาก type</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">07</span><h2>สิ่งที่ยังไม่เสร็จ และรู้ตัวว่ายังไม่เสร็จ</h2></div>
+    <p>สองเรื่องนี้ M1a จงใจไม่ทำ บันทึกไว้เป็นการตัดสินใจ และเป็น <strong>เงื่อนไขก่อนหน้า</strong> ของงานชิ้นแรกใน M1b</p>
+    <div class="open">
+      <div class="open-item">
+        <span class="tag">ST-D22</span>
+        <p>ตารางชั้นความลับ <strong>ยังไม่มีอะไรตรวจสอบมันได้</strong> ถ้าสลับป้ายทิศทางเลี้ยวมั่ว ๆ เนื้อในจะเปลี่ยนไป 74% <strong>แต่จะไม่มีเทสต์ตัวไหนล้มเลย</strong> — เพราะตารางไม่มีคีย์ระบุตัวรถ จึงเอาไปกระทบยอดกับข้อมูลอีกชุดไม่ได้</p>
+      </div>
+      <div class="open-item">
+        <span class="tag">ST-D23</span>
+        <p>กำแพงชั้นความลับกั้น <strong>โค้ด</strong> แต่ไม่ได้กั้น <strong>การอ่านไฟล์</strong> — เอาสองโฟลเดอร์ที่ไม่ลับมาต่อกัน ประกอบตารางลับกลับมาได้ราว 89%</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>รายละเอียดเต็ม → docs/CODEBASE.md</span>
+    <span>แผนงาน → docs/DIRECTION.md</span>
+    <span>กฎ → CLAUDE.md</span>
+    <span>make check · 230 passed</span>
+    <span>ภาพนิ่ง ณ วันที่ 25 ส.ค. 2026 ตอนจบ M1a — ไม่ตามโค้ด สถานะปัจจุบันอยู่ที่ docs/CODEBASE.md</span>
+  </footer>
+
+</div>

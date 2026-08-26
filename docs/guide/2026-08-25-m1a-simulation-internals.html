@@ -1,0 +1,461 @@
+<title>กลไก simulation/</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Sarabun:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #F2F3F0;
+    --card:       #FFFFFF;
+    --sunk:       #ECEEEA;
+    --ink:        #14181B;
+    --ink-soft:   #4A545C;
+    --ink-faint:  #7D8891;
+    --rule:       #D8DBD6;
+    --rule-firm:  #B9BEB8;
+
+    --ink-blue:   #2B4A6F;
+    --ink-blue-w: #E7ECF3;
+
+    --lamp-green: #2E7D4F;
+    --lamp-amber: #A8710C;
+    --lamp-red:   #A93B2C;
+    --amber-wash: #F7EEDC;
+    --green-wash: #E4EFE8;
+    --red-wash:   #F7E7E4;
+
+    --shadow: 0 1px 2px rgba(20, 24, 27, .06), 0 8px 24px -16px rgba(20, 24, 27, .28);
+
+    --sans:  "Sarabun", "Overpass", system-ui, sans-serif;
+    --disp:  "Overpass", "Sarabun", system-ui, sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #101418;
+      --card:       #171C21;
+      --sunk:       #0C1013;
+      --ink:        #E6EAED;
+      --ink-soft:   #A3ADB6;
+      --ink-faint:  #78838C;
+      --rule:       #262D34;
+      --rule-firm:  #38424A;
+      --ink-blue:   #7FA9D8;
+      --ink-blue-w: #1A2431;
+      --lamp-green: #64BC8B;
+      --lamp-amber: #D8A33F;
+      --lamp-red:   #DC7B6B;
+      --amber-wash: #2A2113;
+      --green-wash: #16241C;
+      --red-wash:   #2A1815;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #101418;
+    --card:       #171C21;
+    --sunk:       #0C1013;
+    --ink:        #E6EAED;
+    --ink-soft:   #A3ADB6;
+    --ink-faint:  #78838C;
+    --rule:       #262D34;
+    --rule-firm:  #38424A;
+    --ink-blue:   #7FA9D8;
+    --ink-blue-w: #1A2431;
+    --lamp-green: #64BC8B;
+    --lamp-amber: #D8A33F;
+    --lamp-red:   #DC7B6B;
+    --amber-wash: #2A2113;
+    --green-wash: #16241C;
+    --red-wash:   #2A1815;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sheet { max-width: 64rem; margin: 0 auto; padding: clamp(2rem,5vw,4.5rem) clamp(1.1rem,4vw,3rem) 6rem; }
+
+  .mast { border-bottom: 2px solid var(--ink); padding-bottom: 1.3rem; margin-bottom: 2.4rem; }
+  .kicker {
+    font-family: var(--mono); font-size: .7rem; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-blue); margin-bottom: .5rem;
+  }
+  h1 {
+    font-family: var(--disp); font-weight: 900; font-size: clamp(1.9rem,5.4vw,2.8rem);
+    letter-spacing: -.02em; line-height: 1.06; margin: 0 0 .8rem;
+  }
+  h1 .path { font-family: var(--mono); font-weight: 600; font-size: .68em; letter-spacing: -.01em; }
+  .standfirst { font-size: clamp(1rem,2.2vw,1.13rem); color: var(--ink-soft); max-width: 52ch; margin: 0; }
+
+  section { margin-top: clamp(2.8rem,6vw,4rem); }
+  .head { display: flex; align-items: baseline; gap: .85rem; margin-bottom: 1rem; }
+  .num {
+    font-family: var(--mono); font-size: .74rem; font-weight: 600; color: var(--ink-blue);
+    letter-spacing: .06em; padding-top: .35rem; flex: none;
+  }
+  h2 {
+    font-family: var(--disp); font-weight: 700; font-size: clamp(1.28rem,3.2vw,1.55rem);
+    letter-spacing: -.01em; line-height: 1.3; margin: 0; text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--disp); font-weight: 700; font-size: 1.02rem;
+    margin: 1.8rem 0 .5rem; letter-spacing: -.005em;
+  }
+  p { max-width: 66ch; margin: 0 0 .95rem; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 600; }
+  code {
+    font-family: var(--mono); font-size: .86em;
+    background: var(--ink-blue-w); padding: .1em .34em; border-radius: 3px;
+  }
+
+  pre {
+    font-family: var(--mono); font-size: .8rem; line-height: 1.7;
+    background: var(--sunk); border: 1px solid var(--rule);
+    border-radius: 5px; padding: .95rem 1.1rem; overflow-x: auto;
+    margin: 1rem 0; color: var(--ink);
+  }
+  pre .c { color: var(--ink-faint); }
+  pre .k { color: var(--ink-blue); font-weight: 600; }
+  pre .w { color: var(--lamp-amber); font-weight: 600; }
+
+  .callout {
+    display: flex; gap: .9rem; align-items: flex-start;
+    background: var(--amber-wash); border: 1px solid var(--rule-firm);
+    border-left: 4px solid var(--lamp-amber); border-radius: 4px;
+    padding: 1rem 1.15rem; margin: 1.3rem 0;
+  }
+  .callout.measured { background: var(--green-wash); border-left-color: var(--lamp-green); }
+  .callout .mark {
+    font-family: var(--mono); font-size: .66rem; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--lamp-amber); flex: none; padding-top: .38rem;
+    min-width: 5.6rem;
+  }
+  .callout.measured .mark { color: var(--lamp-green); }
+  .callout p { margin: 0; max-width: 60ch; font-size: .95rem; }
+  @media (max-width: 34rem) { .callout { flex-direction: column; gap: .3rem; } }
+
+  /* module map */
+  .rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem,1fr)); gap: 1rem; margin: 1.4rem 0; }
+  .ring { border-radius: 5px; padding: 1.1rem 1.2rem; border: 1px solid var(--rule-firm); background: var(--card); box-shadow: var(--shadow); }
+  .ring.inner { border: 2px solid var(--ink-blue); background: var(--ink-blue-w); box-shadow: none; }
+  .ring h4 {
+    font-family: var(--mono); font-size: .82rem; font-weight: 600; margin: 0 0 .15rem; color: var(--ink);
+  }
+  .ring .sub { font-size: .8rem; color: var(--ink-faint); margin-bottom: .8rem; line-height: 1.5; }
+  .mods { display: flex; flex-direction: column; gap: .42rem; }
+  .mod { display: flex; gap: .6rem; font-size: .85rem; line-height: 1.5; }
+  .mod b { font-family: var(--mono); font-size: .78rem; font-weight: 600; flex: none; min-width: 9.2rem; }
+  .mod span { color: var(--ink-soft); }
+  @media (max-width: 30rem) { .mod { flex-direction: column; gap: .05rem; } .mod b { min-width: 0; } }
+
+  /* ordered step list */
+  .seq { counter-reset: s; display: flex; flex-direction: column; gap: .55rem; margin: 1.2rem 0; }
+  .seq li {
+    counter-increment: s; list-style: none; display: flex; gap: .85rem;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: 4px; padding: .75rem .95rem;
+  }
+  .seq li::before {
+    content: counter(s); font-family: var(--mono); font-size: .74rem; font-weight: 600;
+    color: var(--card); background: var(--ink-blue); border-radius: 3px;
+    width: 1.5rem; height: 1.5rem; display: grid; place-items: center; flex: none; margin-top: .18rem;
+  }
+  :root[data-theme="dark"] .seq li::before { color: #101418; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .seq li::before { color: #101418; } }
+  .seq li.danger { border-color: var(--lamp-red); background: var(--red-wash); }
+  .seq li.danger::before { background: var(--lamp-red); }
+  .seq .what { font-family: var(--mono); font-size: .84rem; font-weight: 600; display: block; }
+  .seq .why { font-size: .88rem; color: var(--ink-soft); line-height: 1.6; display: block; margin-top: .1rem; }
+  ul.seq { padding: 0; margin-left: 0; }
+
+  /* gate ladder */
+  .gates { display: flex; flex-direction: column; gap: .4rem; margin: 1.2rem 0; }
+  .gate {
+    display: grid; grid-template-columns: minmax(11rem, 15rem) 1fr; gap: .2rem 1rem;
+    border-left: 3px solid var(--rule-firm); padding: .5rem 0 .5rem .95rem;
+  }
+  .gate .cond { font-family: var(--mono); font-size: .82rem; font-weight: 600; }
+  .gate .out { font-size: .88rem; color: var(--ink-soft); line-height: 1.6; }
+  .gate.pass { border-left-color: var(--lamp-green); }
+  .gate.pass .cond { color: var(--lamp-green); }
+  .gate.count { border-left-color: var(--lamp-amber); }
+  .gate.count .cond { color: var(--lamp-amber); }
+  @media (max-width: 40rem) { .gate { grid-template-columns: 1fr; } }
+
+  .tablewrap { overflow-x: auto; margin: 1.2rem 0; }
+  table { border-collapse: collapse; width: 100%; min-width: 32rem; font-size: .9rem; }
+  th, td { text-align: left; padding: .58rem .8rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: .67rem; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--ink-faint); border-bottom: 1px solid var(--rule-firm);
+  }
+  td:first-child { font-family: var(--mono); font-size: .82rem; white-space: nowrap; }
+  td:nth-child(n+2) { color: var(--ink-soft); }
+  td.n { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr.hit td { background: var(--green-wash); }
+  tr.hit td:first-child { color: var(--lamp-green); font-weight: 600; }
+
+  footer {
+    margin-top: 4rem; padding-top: 1.2rem; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: .75rem; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.4rem;
+  }
+</style>
+
+<div class="sheet">
+
+  <header class="mast">
+    <div class="kicker">CADENCE · เจาะลึก</div>
+    <h1>กลไกของ <span class="path">simulation/</span></h1>
+    <p class="standfirst">14 ไฟล์ 1,704 บรรทัด ที่แปลงการจำลอง SUMO เป็นข้อมูลที่ไม่รู้จัก SUMO — ไล่ทีละกลไก พร้อมกับดักที่เจอมาแล้วจริง</p>
+  </header>
+
+  <section>
+    <div class="head"><span class="num">01</span><h2>สองวงแหวน และทิศทางของการพึ่งพา</h2></div>
+    <p>โฟลเดอร์นี้แบ่งเป็นสองชั้น <strong>ชั้นในรู้จัก SUMO ชั้นนอกไม่รู้จักเลย</strong> และการพึ่งพาวิ่งทางเดียวเสมอ: ชั้นในเรียกใช้ชนิดข้อมูลของชั้นนอก แต่ชั้นนอกไม่เคยเรียกชั้นใน</p>
+
+    <div class="rings">
+      <div class="ring inner">
+        <h4>simulation/sumo/ — ชั้นใน</h4>
+        <div class="sub">แตะ traci / libsumo / sumolib ได้ที่เดียว มีเทสต์บังคับ</div>
+        <div class="mods">
+          <div class="mod"><b>binding.py</b><span>โหลด traci หรือ libsumo คืนมาเป็นโมดูล</span></div>
+          <div class="mod"><b>command.py</b><span>ประกอบ argument ที่ส่งให้ SUMO</span></div>
+          <div class="mod"><b>connection.py</b><span>วงจรชีวิต + จังหวะของแต่ละ step</span></div>
+          <div class="mod"><b>topology_reader.py</b><span>อ่านรูปร่างถนน ครั้งเดียวตอนเปิด</span></div>
+          <div class="mod"><b>extract.py</b><span>สามคลาสที่แปลง SUMO เป็นข้อมูลกลาง</span></div>
+          <div class="mod"><b>signals.py</b><span>ถอดรหัสตัวอักษรไฟสัญญาณ</span></div>
+          <div class="mod"><b>validation.py</b><span>ตรวจถนนก่อนรัน</span></div>
+        </div>
+      </div>
+      <div class="ring">
+        <h4>simulation/ — ชั้นนอก</h4>
+        <div class="sub">ชนิดข้อมูลล้วน ไม่มีคำว่า traci อยู่ในไฟล์ไหนเลย</div>
+        <div class="mods">
+          <div class="mod"><b>topology.py</b><span>ถนน "เป็น" อะไร — คงที่ตลอดการรัน</span></div>
+          <div class="mod"><b>state.py</b><span>ถนน "กำลังทำ" อะไร — เปลี่ยนทุกวินาที</span></div>
+          <div class="mod"><b>events.py</b><span>เหตุการณ์ + StepResult</span></div>
+          <div class="mod"><b>ground_truth.py</b><span>ตารางชั้นความลับ</span></div>
+          <div class="mod"><b>scenario.py</b><span>อ่านและแฮช scenario</span></div>
+          <div class="mod"><b>manifest.py</b><span>ที่มาที่ไปของรอบการรัน</span></div>
+          <div class="mod"><b>artifacts.py</b><span>เขียน Parquet</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p><strong>กลไกที่ทำให้ทดสอบได้:</strong> <code>binding.py</code> คืนตัวโมดูลเป็น<em>ค่า</em> แล้วทุกอย่างที่เหลือรับมันมาเป็น argument</p>
+<pre><span class="k">def</span> read_topology(binding: ModuleType) -> NetworkTopology:
+<span class="k">def</span> extract(self, binding: ModuleType, time_s: float, ...):
+<span class="k">def</span> read(self, binding: ModuleType, time_s: float):
+<span class="c"># ไม่มีใคร import traci เอง — ส่ง SUMO ปลอมเข้าไปเทสต์ได้เลย</span></pre>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">02</span><h2>ตอนเปิด — อ่านรูปร่างถนนครั้งเดียว</h2></div>
+    <p><code>read_topology()</code> ถาม SUMO ครั้งเดียวตอนเริ่ม แล้วสร้างตารางสี่ชุดที่คงที่ไปตลอดการรัน ทุกอย่างเป็น <code>MappingProxyType</code> คือ dict ที่แก้ไม่ได้</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>ตาราง</th><th>เก็บอะไร</th><th>ถาม SUMO ว่า</th></tr></thead>
+        <tbody>
+          <tr><td>lanes</td><td>ความยาว ความเร็วจำกัด อยู่ edge ไหน เลนที่เท่าไร</td><td>lane.getIDList / getLength / getMaxSpeed</td></tr>
+          <tr><td>connections</td><td>เลนไหนต่อไปเลนไหน ผ่านแยกด้วยทิศทางอะไร</td><td>trafficlight.getControlledLinks</td></tr>
+          <tr><td>movements</td><td>connection ที่เป็นการเลี้ยวเดียวกัน จับกลุ่มไว้</td><td>คำนวณจาก connections</td></tr>
+          <tr><td>phases</td><td>โปรแกรมไฟ: แต่ละ phase นานเท่าไร สัญญาณอะไรบ้าง</td><td>trafficlight.getAllProgramLogics</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>กับดักสามอันในฟังก์ชันเดียว</h3>
+
+    <div class="callout">
+      <span class="mark">เลนภายใน</span>
+      <p>SUMO สร้างเลนสมมติข้างในแยกเอง ชื่อขึ้นต้นด้วย <code>:</code> มันเป็นทางผ่าน ไม่ใช่ถนนจริง — กรองทิ้งตั้งแต่ตรงนี้ ไม่งั้นทุกการนับรถจะเกินจริง</p>
+    </div>
+    <div class="callout">
+      <span class="mark">เลขเลน</span>
+      <p>SUMO ไม่มี getter สำหรับ "นี่คือเลนที่เท่าไรของ edge" ต้องแยกจากชื่อเอง <code>"e1_0".rpartition("_")</code> ซึ่งเป็นวิธีประกอบชื่อที่ SUMO ประกาศไว้ในเอกสาร ไม่ใช่การเดา</p>
+    </div>
+    <div class="callout">
+      <span class="mark">โปรแกรมไฟ</span>
+      <p><code>getAllProgramLogics</code> คืน<strong>ทุกโปรแกรมที่นิยามไว้</strong> ไม่ใช่โปรแกรมที่กำลังวิ่ง ถ้าแยกหนึ่งมีทั้งโปรแกรม actuated และ static สำรอง หยิบตัวแรกมาอาจได้ตัวที่ไม่เคยทำงาน — ต้องเทียบกับ <code>getProgram()</code> ก่อน</p>
+    </div>
+
+    <p>ทิศทางการเลี้ยว (<code>s t T l r L R</code>) อ่านมาจาก <code>lane.getLinks</code> ของ SUMO เอง <strong>ไม่คำนวณจากพิกัดใหม่</strong> เพื่อไม่ให้โปรเจกต์มีความเห็นที่สองว่าอะไรคือการเลี้ยวซ้าย</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">03</span><h2>ทุกวินาที — และทำไมลำดับถึงสำคัญ</h2></div>
+    <p><code>connection.step()</code> ทำห้าอย่างเรียงกัน และ <strong>สองอันตรงกลางสลับกันไม่ได้</strong></p>
+
+    <ul class="seq">
+      <li><span><span class="what">binding.simulationStep()</span><span class="why">สั่ง SUMO เดินไปหนึ่งวินาที</span></span></li>
+      <li><span><span class="what">เก็บ events</span><span class="why">ออกตัว · ถึงที่หมาย · teleport เริ่ม/จบ · ชน — ทั้งหมดคือรายการรถของ step ที่เพิ่งผ่านไป</span></span></li>
+      <li class="danger"><span><span class="what">อ่าน held_lane ของรถที่กำลัง teleport</span><span class="why">ต้องอ่าน<strong>ก่อน</strong> เพราะ getLaneID() คืนสตริงว่างสำหรับรถที่กำลังถูกย้าย เลนที่มันจากมาเหลืออยู่แค่ในหน่วยความจำของ detector เท่านั้น</span></span></li>
+      <li class="danger"><span><span class="what">forget(รถที่ teleport)</span><span class="why">ต้องลบ<strong>ก่อน</strong> observe() ไม่งั้น detector จะเทียบเลนขาเข้าที่มันจำไว้ กับเลนปลายทางที่รถไม่เคยขับไปถึง แล้ว<strong>สร้างการข้ามแยกปลอมขึ้นมา</strong></span></span></li>
+      <li><span><span class="what">observe() แล้ว extract()</span><span class="why">ตรวจว่าใครข้ามแยกไปแล้วบ้าง จากนั้นประกอบภาพนิ่งของวินาทีนี้</span></span></li>
+    </ul>
+
+    <div class="callout">
+      <span class="mark">ทำไมสำคัญ</span>
+      <p>บน fixture ปัจจุบันมี teleport <strong>ศูนย์ครั้ง</strong> ลำดับผิดก็ยังผ่านเทสต์ทุกตัว เทสต์ที่ปักลำดับนี้ไว้ต้องลดเกณฑ์ <code>time_to_teleport_s</code> ลงจนเกิด teleport จริง 35 ครั้งถึงจะจับได้ — และ regime C กับ D ที่โปรเจกต์นี้มีไว้ศึกษาโดยเฉพาะ คือที่ที่มันเกิดตลอดเวลา</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">04</span><h2>StateExtractor — ประกอบภาพนิ่ง</h2></div>
+    <p>ถาม SUMO หนึ่งครั้งต่อหนึ่งปริมาณต่อหนึ่งเลน แล้วยัดใส่ <code>LaneState</code> ที่แก้ไม่ได้ ตรงไปตรงมา — แต่มีสองอย่างที่ไม่ตรงไปตรงมา</p>
+
+    <h3>ยอดสะสมที่ SUMO ไม่ได้เก็บให้</h3>
+    <p><code>getDepartedNumber()</code> ฟังดูเหมือนยอดสะสม แต่ไม่ใช่ — มันรายงานเฉพาะ step ที่เพิ่งผ่าน</p>
+<pre><span class="c"># วัดจริงที่ t=120 หลังมีรถออกตัวไปแล้วเกินร้อยคัน</span>
+simulation.getDepartedNumber()   <span class="w">→ 0</span>
+simulation.getLoadedNumber()     <span class="w">→ 0</span></pre>
+    <p>เลยต้องนับเองจากสาย event ทุก step: <code>departed_total_veh</code>, <code>arrived_total_veh</code>, <code>teleport_total_veh</code></p>
+
+    <h3>เรียก SUMO ครั้งเดียวต่อแยก ไม่ใช่ครั้งเดียวต่อ connection</h3>
+    <p>สัญญาณของทั้งแยกมาเป็นสตริงเดียว เช่น <code>"GGrrGGrr"</code> หนึ่งตัวอักษรต่อหนึ่ง connection ที่ควบคุม โค้ดจึงจัดกลุ่ม connection ตามแยก<em>ก่อน</em>วนลูป แล้วเรียก <code>getRedYellowGreenState</code> ครั้งเดียว จากนั้นถอดรหัสด้วย <code>link_index</code> ของแต่ละ connection</p>
+    <p>แยกที่มี 16 connection จึงเสียการเรียก 1 ครั้ง ไม่ใช่ 16 ครั้ง</p>
+
+    <h3>สัญญาณของ movement เรียงตรงตำแหน่ง</h3>
+    <p><code>MovementState.signals</code> เรียงตรงกับ <code>topology.movements[id].connection_ids</code> ตำแหน่งต่อตำแหน่ง ตัวควบคุมจึงถามได้ว่า <em>connection ไหนกำลังแสดงสัญญาณอะไร</em> ไม่ใช่แค่ <em>มีอันไหนเขียวบ้างไหม</em></p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">05</span><h2>TraversalDetector — อัลกอริทึมที่น่าสนใจที่สุดในโฟลเดอร์นี้</h2></div>
+    <p>โจทย์: <strong>รู้ได้ยังไงว่ารถคันหนึ่งข้ามแยกไปแล้ว และข้ามด้วยการเลี้ยวแบบไหน</strong> SUMO ไม่บอก มันบอกแค่ว่าตอนนี้รถอยู่เลนไหน</p>
+
+    <p>วิธีคือจำเลนล่าสุดของรถทุกคันไว้ใน dict เดียว (<code>_last_lane</code>) แล้วทุก step เอาเลนปัจจุบันมาเทียบ ถ้าเปลี่ยน ให้ผ่านด่านห้าด่านนี้</p>
+
+    <div class="gates">
+      <div class="gate">
+        <span class="cond">เลนเดิม ไม่เปลี่ยน</span>
+        <span class="out">ข้าม ไม่มีอะไรเกิดขึ้น</span>
+      </div>
+      <div class="gate">
+        <span class="cond">เลนใหม่ขึ้นต้นด้วย :</span>
+        <span class="out">รถอยู่กลางแยก — <strong>ไม่อัปเดตความจำ</strong> คงเลนขาเข้าไว้ก่อน เพราะรถเกือบทุกคันถูกเห็นตอนอยู่บนเลนภายใน ถ้าเทียบกับเลนก่อนหน้าทันทีจะแทบไม่มีการข้ามแยกไหนถูกตรวจเจอเลย</span>
+      </div>
+      <div class="gate">
+        <span class="cond">เลนเดิมไม่ใช่เลนขาเข้า</span>
+        <span class="out">ไม่เกี่ยวกับแยกนี้ อัปเดตความจำแล้วจบ</span>
+      </div>
+      <div class="gate">
+        <span class="cond">edge ใหม่ = edge เดิม</span>
+        <span class="out">แค่เปลี่ยนเลนบนถนนเส้นเดิม <strong>ไม่ใช่การข้ามแยก</strong> — บน fixture เกิด 121 ครั้ง</span>
+      </div>
+      <div class="gate count">
+        <span class="cond">หา movement ไม่เจอ</span>
+        <span class="out">นับใส่ <code>unmatched_count</code> — <strong>ไม่เงียบ</strong> การนับขาดที่ M8 กับทางออกหลายเลนจะดูเหมือนความต้องการเดินทางน้อย แทนที่จะดูเหมือนบั๊ก</span>
+      </div>
+      <div class="gate pass">
+        <span class="cond">ผ่านทุกด่าน</span>
+        <span class="out">บันทึก <code>Traversal</code> — เวลา · รถ · movement · connection</span>
+      </div>
+    </div>
+
+    <h3>คีย์ที่ใช้ระบุการข้ามแยก เลือกจากการวัด ไม่ใช่จากการเถียง</h3>
+    <p>รถ 315 คันวิ่งครบรอบ คำตอบที่ถูกต้องจึงต้องได้ 315</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>ใช้อะไรเป็นคีย์</th><th class="n">ได้เท่าไร</th><th>พลาดตรงไหน</th></tr></thead>
+        <tbody>
+          <tr><td>เลนภายในที่ผ่าน</td><td class="n">322</td><td>รถที่เปลี่ยนเลนกลางแยกถูกนับสองครั้ง</td></tr>
+          <tr><td>คู่ (เลนเข้า, เลนออก)</td><td class="n">306</td><td>รถคันเดียวกันหายไปเลย เพราะออกที่เลนที่คู่นั้นไม่ได้ระบุไว้</td></tr>
+          <tr class="hit"><td>(เลนเข้า, edge ออก)</td><td class="n">315</td><td>ถูกทั้งสองกรณี — และหนึ่งเลนต่อได้ไม่เกินหนึ่ง connection ต่อหนึ่ง edge จึงไม่ซ้ำด้วย</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout measured">
+      <span class="mark">กฎของเลข</span>
+      <p>ตัวเลขทุกตัวที่ assert ในเทสต์มาจากการรันจริง ไม่เคยมาจากการเดา <strong>เมื่อตัวเลขที่วัดได้ขัดกับโค้ด แปลว่าโค้ดผิด ไม่ใช่แก้ตัวเลขให้ตรงกับโค้ด</strong> กฎนี้คือเหตุผลที่จับเรื่องคีย์ได้ก่อนจะมีอะไรสร้างทับมัน</p>
+    </div>
+
+    <p><code>connection_id</code> ใน Traversal <strong>เป็น null ได้</strong> — ถ้ารถเปลี่ยนเลนกลางแยก คู่เลนจะระบุ connection ไม่ได้ แต่ movement ยังระบุได้อยู่ บน fixture เกิด 9 ครั้งจาก 315</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">06</span><h2>GroundTruthReader — ตารางที่โกงได้ถ้าเอาไปใช้ผิด</h2></div>
+    <p>ตอบคำถามที่เซนเซอร์จริงตอบไม่ได้: <strong>รถบนเลนนี้ คันไหนตั้งใจจะไป edge ไหนต่อ</strong> อ่านจากเส้นทางที่รถถืออยู่</p>
+
+<pre>route = vehicle.getRoute(vehicle_id)      <span class="c"># cache ไว้ ไม่ถามซ้ำทุก step</span>
+index = vehicle.getRouteIndex(vehicle_id)
+<span class="k">if</span> 0 &lt;= index + 1 &lt; len(route):
+    key = (lane_id, route[index + 1])     <span class="c"># edge ถัดไป = คำตอบ</span>
+<span class="k">else</span>:
+    tally = residual[lane_id]             <span class="c"># อยู่ edge สุดท้ายแล้ว ไม่มีถัดไป</span></pre>
+
+    <p>route ถูก cache เพราะมันไม่เปลี่ยน (ตราบใดที่ไม่มีการ reroute) และการถามทุก step แพงขึ้นราวเท่าตัวต่อคัน — <code>--device.rerouting.probability 0</code> ถูกตรึงไว้ใน command เพื่อให้เงื่อนไขนี้เป็นจริงเชิงกลไก ไม่ใช่แค่เขียนไว้ในคอมเมนต์</p>
+
+    <h3>แถว residual — null คือข้อมูล ไม่ใช่ค่าว่าง</h3>
+    <p>รถที่อยู่บน edge สุดท้ายของเส้นทางไม่มี "edge ถัดไป" แต่มันก็ยังกินที่บนเลนอยู่ดี ถ้าทิ้งไป <strong>ผลรวมต่อเลนจะไม่ตรงกับจำนวนรถจริง</strong> จึงมีหนึ่งแถวต่อหนึ่งเลนที่ <code>next_edge_id = null</code> เขียนทุกเลนแม้ค่าเป็นศูนย์</p>
+    <p>นั่นทำให้ตรวจสอบได้ว่า <code>ผลรวมทุกแถวของเลน = LaneState.vehicle_count_veh</code> ซึ่งเป็นเทสต์จริงที่รันอยู่</p>
+
+    <h3>ทำไมจำนวนรถที่หยุดถึงไม่ตรงกับของ LaneState</h3>
+    <p>สี่เหตุผล และการตั้งเกณฑ์ความเร็วให้ตรงกับ SUMO แก้ได้แค่ข้อแรก:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>สาเหตุ</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>เกณฑ์ของ SUMO อยู่ข้างในตัวมัน เปลี่ยนข้ามเวอร์ชันได้ ของเราอยู่ในซอร์ส</td></tr>
+          <tr><td>2</td><td>SUMO เฉลี่ยตลอด step ลูปนี้อ่านความเร็ว ณ ปลาย step</td></tr>
+          <tr><td>3</td><td>SUMO ใช้การครองเลนของ step ที่แล้ว ลูปนี้ใช้ getLaneID() ณ ปลาย step</td></tr>
+          <tr><td>4</td><td>รถบน edge สุดท้ายไม่มีแถวในตารางนี้ แต่ SUMO ยังนับว่าหยุด — ไม่มีเกณฑ์ไหนแก้ได้ ต้องใช้แถว residual</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">07</span><h2>RunRecorder — พักไว้ก่อน เขียนทีเดียว</h2></div>
+    <p>ทุก step แค่ต่อแถวใส่ list ในหน่วยความจำ พอจบรันถึงเขียนลง Parquet ทีเดียว หนึ่งรอบมีขนาดไม่กี่ร้อยกิโลไบต์ การทยอยเขียนจึงไม่ได้อะไร แต่แลกมาด้วยความเสี่ยงได้ไฟล์ครึ่ง ๆ กลาง ๆ</p>
+
+    <h3>ทุกตารางประกาศ schema ของตัวเอง</h3>
+    <p>ถ้าไม่ประกาศ ตารางที่ไม่มีแถวเลยจะกลายเป็นไฟล์ที่<strong>ไม่มีคอลัมน์</strong> แล้วโค้ดปลายทางที่ select คอลัมน์จะพังทันที — <strong>รอบการรันที่เงียบที่สุดจะกลายเป็นรอบเดียวที่อ่านไม่ได้</strong></p>
+
+    <h3>แปลง dataclass เป็นแถว</h3>
+<pre><span class="k">if not</span> dataclasses.is_dataclass(record):
+    <span class="k">raise</span> TypeError(...)
+<span class="k">return</span> {f.name: _as_value(getattr(record, f.name))
+        <span class="k">for</span> f <span class="k">in</span> dataclasses.fields(record)}</pre>
+    <p>ใช้ <code>dataclasses.fields()</code> ไม่ใช่ <code>__slots__</code> เพราะ slotted dataclass ที่มีคลาสแม่จะเก็บเฉพาะฟิลด์ของตัวเองใน <code>__slots__</code> — ฟิลด์ที่สืบทอดมาจะ<strong>หายไปเงียบ ๆ</strong> ยังไม่มีคลาสไหนในโปรเจกต์เป็นแบบนั้น แต่ตระกูล <code>*State</code> กับ <code>*Info</code> คือรูปที่ชวนให้มีคลาสแม่ในอนาคตพอดี</p>
+
+    <p>และ <code>None</code> ต้องผ่านไปเป็น null จริง ไม่ใช่ <code>str(None)</code> ที่ได้ตัวอักษรสี่ตัวว่า <code>"None"</code> — ซึ่งจะแยกไม่ออกจาก edge ที่ชื่อ None จริง ๆ และทำให้ทุกการตรวจสอบผลรวมนับมันเป็นค่าที่ระบุได้</p>
+  </section>
+
+  <section>
+    <div class="head"><span class="num">08</span><h2>สรุปเป็นตารางเดียว</h2></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>คลาส</th><th>สถานะที่ถือไว้ข้ามเวลา</th><th>ผลลัพธ์ต่อ step</th></tr></thead>
+        <tbody>
+          <tr><td>StateExtractor</td><td>topology + ยอดสะสมสามตัว</td><td>CanonicalTrafficState</td></tr>
+          <tr><td>TraversalDetector</td><td>เลนล่าสุดของรถทุกคัน + unmatched_count</td><td>tuple ของ Traversal</td></tr>
+          <tr><td>GroundTruthReader</td><td>cache เส้นทางของรถทุกคัน</td><td>SimulationGroundTruth</td></tr>
+          <tr><td>RunRecorder</td><td>แถวทั้งหมดของทั้งรัน</td><td>— เขียนตอนจบ</td></tr>
+          <tr><td>SumoConnection</td><td>ตัว binding + สามคลาสข้างบน</td><td>StepResult</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>สามคลาสแรก<strong>ถือสถานะข้ามเวลา</strong> ซึ่งเป็นเหตุผลที่มันต้องถูกสร้างตอนเปิด connection และถูกล้างตอนปิด — ไม่ใช่ฟังก์ชันบริสุทธิ์ที่เรียกเมื่อไรก็ได้</p>
+  </section>
+
+  <footer>
+    <span>รายละเอียดเต็ม → docs/CODEBASE.md</span>
+    <span>1,704 บรรทัดใน 14 ไฟล์</span>
+    <span>make check · 230 passed</span>
+    <span>ภาพนิ่ง ณ วันที่ 25 ส.ค. 2026 ตอนจบ M1a — ไม่ตามโค้ด สถานะปัจจุบันอยู่ที่ docs/CODEBASE.md</span>
+  </footer>
+
+</div>

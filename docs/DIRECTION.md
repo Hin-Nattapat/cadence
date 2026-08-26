@@ -241,6 +241,7 @@ layer, never a control requirement.
 README.md                             what CADENCE is
 CLAUDE.md                             working rules, conventions, test strategy
 docs/CODEBASE.md                      what exists and how it fits together
+docs/guide/                           dated read-only snapshots of that guide, as web pages
 docs/ORIGIN.md                        why the project exists; lessons from 2020
 docs/DIRECTION.md                     this file
 docs/specs/                           dated decision records, immutable once accepted
