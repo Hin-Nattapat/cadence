@@ -1,4 +1,4 @@
-.PHONY: check lint format type test docs-check install
+.PHONY: check lint format type test docs-check install status
 
 install:
 	uv sync
@@ -21,3 +21,6 @@ test:
 	uv run pytest
 
 check: lint type docs-check test
+
+status:
+	uv run python tools/plan_status.py

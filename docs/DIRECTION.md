@@ -15,6 +15,7 @@ Pre-implementation research        complete
 Project direction and conventions  decided  (PD-D01 .. PD-D07)
 Implementation                     M1a complete, M1b not started
 Current milestone                  M1 — Canonical State + Metrics
+Current plan                       docs/plans/2026-08-24-m1a-canonical-state.md
 ```
 
 ---

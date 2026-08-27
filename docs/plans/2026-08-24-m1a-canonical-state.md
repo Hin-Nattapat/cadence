@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status:** The `` `status:` `` line under each `### Task` heading is authoritative, per `docs/specs/2026-08-26-plan-status-tracking.md`. The `- [ ]` step checkboxes below are a record of a step-tracking mechanism this plan never actually used; they are left unticked and are not read for status.
+
 **Goal:** Give CADENCE a canonical traffic state that controllers may consume, a privileged ground-truth stream they may not, and a run directory that records both so M1b can compute metrics offline without re-simulating.
 
 **Architecture:** One extractor inside `simulation/sumo/` reads the live binding once per step and produces observable state; privileged turn intent is fetched by a separately named call. Domain types live outside `sumo/` and carry no simulator concepts. Everything reaches disk as Parquet under `topology/`, `state/`, and `ground_truth/`, partitioned along the same line as the type space.
@@ -51,6 +53,7 @@ Ten tasks. Task 1 produces the fixture every later integration test needs, so it
 ---
 
 ### Task 1: Fix `_approach_pairs` and generate `s0_turning/v1`
+`status: done`
 
 **Files:**
 - Modify: `tools/build_s0_scenario.py`
@@ -329,6 +332,7 @@ git commit -m "feat(scenarios): add the s0_turning fixture and make its generato
 ---
 
 ### Task 2: Identifiers and signal decoding
+`status: done`
 
 **Files:**
 - Modify: `src/cadence/types.py`
@@ -537,6 +541,7 @@ git commit -m "feat(simulation): decode SUMO's lamp alphabet once, at the bounda
 ---
 
 ### Task 3: Topology types and the reader
+`status: done`
 
 **Files:**
 - Create: `src/cadence/simulation/topology.py`, `src/cadence/simulation/sumo/topology_reader.py`
@@ -987,6 +992,7 @@ git commit -m "feat(simulation): read network topology and group connections int
 ---
 
 ### Task 4: Canonical state and the per-step extractor
+`status: done`
 
 **Files:**
 - Modify: `src/cadence/simulation/state.py`
@@ -1495,6 +1501,7 @@ git commit -m "feat(simulation): extract canonical lane, intersection and networ
 ---
 
 ### Task 5: Traversal detection
+`status: done`
 
 **Files:**
 - Modify: `src/cadence/simulation/events.py`, `src/cadence/simulation/sumo/extract.py`, `src/cadence/simulation/sumo/connection.py`
@@ -1864,6 +1871,7 @@ git commit -m "feat(simulation): detect a completed movement from the lane pair 
 ---
 
 ### Task 6: Ground truth, and the boundary that fences it
+`status: done`
 
 **Files:**
 - Create: `src/cadence/simulation/ground_truth.py`
@@ -2161,6 +2169,7 @@ git commit -m "feat(simulation): add privileged ground truth and fence it with t
 ---
 
 ### Task 6a: Record what the reviews found missing
+`status: done`
 
 **Files:**
 - Modify: `src/cadence/simulation/topology.py`, `src/cadence/simulation/sumo/topology_reader.py`, `src/cadence/simulation/sumo/command.py`, `src/cadence/simulation/sumo/extract.py`, `src/cadence/simulation/events.py`
@@ -2321,6 +2330,7 @@ git commit -m "feat(simulation): record the program, the teleport lane and the c
 ```
 
 ### Task 7: Run artifacts
+`status: done`
 
 **Files:**
 - Create: `src/cadence/simulation/artifacts.py`
@@ -2831,6 +2841,7 @@ git commit -m "feat(simulation): write a self-describing run directory split by 
 ---
 
 ### Task 8: Manifest run outcome and dirty digest
+`status: done`
 
 **Files:**
 - Modify: `src/cadence/simulation/manifest.py`, `src/cadence/simulation/sumo/connection.py`
@@ -3115,6 +3126,7 @@ git commit -m "feat(simulation): record how a run ended and which dirty tree pro
 ---
 
 ### Task 9: Wire the CLI and prove it end to end
+`status: done`
 
 **Files:**
 - Modify: `src/cadence/cli.py`, `src/cadence/simulation/sumo/connection.py`, `tests/conftest.py`, `tests/simulation/sumo/test_connection.py`

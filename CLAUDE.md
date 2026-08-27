@@ -272,3 +272,35 @@ A `PreToolUse` hook (`tools/protect_research_hook.py`, registered in `.claude/se
 enforces this for `Write`, `Edit`, `MultiEdit`, and `NotebookEdit`. It does not cover `Bash`: a shell
 command that edits `research/` is not intercepted. That half of the rule is a repository
 rule with no mechanical enforcement.
+
+---
+
+# 14. Where the Work Stands
+
+The current milestone's position lives in the plan file `docs/DIRECTION.md` §1 names, one
+status line under each `### Task` heading:
+
+`status: todo | doing | done | dropped` `added: YYYY-MM-DD` — optional note
+
+`make status` renders it. A `SessionStart` hook renders it at the top of every session, so
+a new chat opens knowing where the work stands.
+
+**The maintainer never writes these lines.** Change the status when a task starts and when
+it ends, and print the rendering both times — a stale marker has to be wrong in front of
+someone within one task, because no test can catch it.
+
+**Work that was not planned becomes a task before it becomes a commit.** Append it to the
+current plan with an `added:` date and the reason it was not foreseen. This is the only
+place it can be recorded, so the work gets placed against the plan while it is still being
+decided rather than after it is done. The count of `added:` tasks is the drift line in the
+rendering.
+
+`tests/test_plan_status.py` enforces what a test can: the pointer resolves, every task
+heading has a well-formed status line, and at most one task is `doing`.
+
+A fourth check — a plan with nothing left to do does not sit under a milestone still
+marked `current` — is written but marked `xfail(strict=True)` today, because §1 currently
+points at the finished M1a plan while M1 is still `current` in §2 and M1b has no plan file
+yet to point at instead. `strict=True` means that marker itself fails `make check` the
+moment an M1b plan exists and the check would otherwise pass — the fix, at that point, is
+to delete the marker, not to extend it.
