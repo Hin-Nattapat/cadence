@@ -100,6 +100,9 @@ def test_a_turning_run_writes_every_artifact(tmp_path, repo_root, expected_movem
         "are not, which is why the demand is asymmetric"
     )
     assert traversals["connection_id"].null_count() == 9, "mid-junction lane changes"
+    # ST-D31: from_lane_id is observable on every traversal, unlike connection_id -- it is
+    # what makes the ground-truth cross-tab's join exact for all 315, not only the 306.
+    assert traversals["from_lane_id"].null_count() == 0
 
     connections = pl.read_parquet(run_dir / TOPOLOGY_DIR / "connection.parquet")
     # Spec §11 and §10.3: every controlled link carries traffic. s0_turning is worth having
@@ -143,6 +146,25 @@ def test_a_turning_run_writes_every_artifact(tmp_path, repo_root, expected_movem
     assert counts.get("collision", 0) == 0
 
     assert (run_dir / GROUND_TRUTH_DIR / "lane_turn.parquet").stat().st_size > 0
+
+    # ST-D32: the fleet record, a writer change so M8 can compute jam spacing over every
+    # run made between now and then without re-simulating. SUMO registers its own default
+    # vTypes (DEFAULT_VEHTYPE, DEFAULT_BIKETYPE, ...) alongside demand.rou.xml's "car", so
+    # this is the fixture's own vType rather than the whole table.
+    vehicle_type = pl.read_parquet(run_dir / TOPOLOGY_DIR / "vehicle_type.parquet")
+    by_id = dict(
+        zip(
+            vehicle_type["type_id"],
+            vehicle_type.select("length_m", "min_gap_m", "max_speed_mps").rows(),
+            strict=True,
+        )
+    )
+    assert by_id["car"] == (5.0, 2.5, 13.9)
+
+    # ST-D31: the whole-run distinct-vehicle cross-tab, written once rather than per step.
+    lane_turn_vehicle = pl.read_parquet(run_dir / GROUND_TRUTH_DIR / "lane_turn_vehicle.parquet")
+    assert lane_turn_vehicle.height > 0
+    assert (lane_turn_vehicle["distinct_veh"] > 0).all()
 
 
 @pytest.mark.sumo

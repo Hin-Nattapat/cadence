@@ -17,6 +17,7 @@ from cadence.simulation.topology import (
     NetworkTopology,
     PhaseInfo,
     TurnDirection,
+    VehicleTypeInfo,
     build_movements,
     movement_id,
 )
@@ -117,9 +118,20 @@ def read_topology(binding: ModuleType) -> NetworkTopology:
                     movement_id=movement_id(from_edge, to_edge),
                 )
 
+    vehicle_types = {
+        type_id: VehicleTypeInfo(
+            type_id=type_id,
+            length_m=float(binding.vehicletype.getLength(type_id)),
+            min_gap_m=float(binding.vehicletype.getMinGap(type_id)),
+            max_speed_mps=float(binding.vehicletype.getMaxSpeed(type_id)),
+        )
+        for type_id in sorted(binding.vehicletype.getIDList())
+    }
+
     return NetworkTopology(
         lanes=MappingProxyType(lanes),
         connections=MappingProxyType(connections),
         movements=MappingProxyType(dict(build_movements(connections.values()))),
         phases=tuple(phases),
+        vehicle_types=MappingProxyType(vehicle_types),
     )

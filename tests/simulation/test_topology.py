@@ -72,6 +72,7 @@ def test_topology_indexes_by_identifier():
         connections={connection.connection_id: connection},
         movements=build_movements([connection]),
         phases=(),
+        vehicle_types={},
     )
     assert topology.lanes[LaneId("top0A0_0")].length_m == 189.6
     assert topology.connections[connection.connection_id].link_index == 1

@@ -30,3 +30,15 @@ class LaneTurnCount:
 class SimulationGroundTruth:
     time_s: float
     lane_turns: tuple[LaneTurnCount, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LaneTurnVehicleCount:
+    lane_id: LaneId
+    # None marks the same residual population as LaneTurnCount.next_edge_id: vehicles on
+    # this lane with no next edge to attribute to.
+    next_edge_id: EdgeId | None
+    # Distinct vehicles ever seen on (lane_id, next_edge_id), accumulated over the whole run
+    # rather than read at one step. count_veh in LaneTurnCount is a step snapshot and cannot
+    # answer "how many vehicles", only "how many vehicle-steps".
+    distinct_veh: int

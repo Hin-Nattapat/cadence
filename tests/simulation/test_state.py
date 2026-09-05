@@ -43,6 +43,7 @@ def _empty_topology() -> NetworkTopology:
         connections=MappingProxyType({}),
         movements=MappingProxyType({}),
         phases=(),
+        vehicle_types=MappingProxyType({}),
     )
 
 
@@ -87,6 +88,7 @@ def _topology_with_one_movement() -> NetworkTopology:
             }
         ),
         phases=(),
+        vehicle_types=MappingProxyType({}),
     )
 
 

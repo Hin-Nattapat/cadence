@@ -1,12 +1,14 @@
 import pytest
 
 from cadence.simulation.events import EventKind, SimulationEvent
+from cadence.simulation.ground_truth import LaneTurnVehicleCount
 from cadence.simulation.scenario import load_scenario
 from cadence.simulation.state import SignalState
 from cadence.simulation.sumo.binding import BindingKind
 from cadence.simulation.sumo.connection import SumoConnection
-from cadence.simulation.sumo.extract import StateExtractor, TraversalDetector
-from cadence.types import IntersectionId, VehicleId
+from cadence.simulation.sumo.extract import GroundTruthReader, StateExtractor, TraversalDetector
+from cadence.simulation.topology import LaneInfo, NetworkTopology
+from cadence.types import EdgeId, IntersectionId, LaneId, VehicleId
 
 TURNING = "scenarios/s0_turning/v1"
 
@@ -142,3 +144,77 @@ def test_a_teleported_vehicle_produces_no_traversal(turning_topology):
 
     assert seen == ()
     assert detector.unmatched_count == 0
+
+
+def _single_lane_topology() -> NetworkTopology:
+    lane = LaneInfo(LaneId("a_0"), EdgeId("a"), 0, 100.0, 13.89)
+    return NetworkTopology(
+        lanes={lane.lane_id: lane},
+        connections={},
+        movements={},
+        phases=(),
+        vehicle_types={},
+    )
+
+
+class _FakeGroundTruthVehicleApi:
+    def __init__(self, steps):
+        # Each step maps vehicle_id -> (lane_id, route, route_index, speed, waiting_s).
+        self._steps = steps
+        self._step = -1
+
+    def advance(self):
+        self._step += 1
+
+    def getIDList(self):  # noqa: N802
+        return list(self._steps[self._step])
+
+    def getLaneID(self, vehicle_id):  # noqa: N802
+        return self._steps[self._step][vehicle_id][0]
+
+    def getRoute(self, vehicle_id):  # noqa: N802
+        return self._steps[self._step][vehicle_id][1]
+
+    def getRouteIndex(self, vehicle_id):  # noqa: N802
+        return self._steps[self._step][vehicle_id][2]
+
+    def getSpeed(self, vehicle_id):  # noqa: N802
+        return self._steps[self._step][vehicle_id][3]
+
+    def getWaitingTime(self, vehicle_id):  # noqa: N802
+        return self._steps[self._step][vehicle_id][4]
+
+
+class _FakeGroundTruthBinding:
+    def __init__(self, steps):
+        self.vehicle = _FakeGroundTruthVehicleApi(steps)
+
+
+def test_distinct_vehicle_totals_counts_vehicles_not_vehicle_steps():
+    # ST-D31: the same vehicle standing on the same (lane, next edge) pair for two steps
+    # must contribute one to distinct_veh, not two -- that is what separates this table
+    # from ground_truth/lane_turn's per-step count_veh.
+    reader = GroundTruthReader(_single_lane_topology())
+    binding = _FakeGroundTruthBinding(
+        [
+            {"v0": ("a_0", ("a", "b"), 0, 0.0, 1.0)},
+            {"v0": ("a_0", ("a", "b"), 0, 0.0, 2.0), "v1": ("a_0", ("a", "b"), 0, 0.0, 0.0)},
+        ]
+    )
+    for index in range(2):
+        binding.vehicle.advance()
+        reader.read(binding, time_s=float(index))
+
+    expected = (LaneTurnVehicleCount(LaneId("a_0"), EdgeId("b"), 2),)
+    assert reader.distinct_vehicle_totals() == expected
+
+
+def test_distinct_vehicle_totals_keeps_the_residual_key_separate():
+    # A vehicle on its final route edge has no next edge (spec section 6.1); it must land
+    # under the same (lane, None) key ground_truth/lane_turn's residual row uses.
+    reader = GroundTruthReader(_single_lane_topology())
+    binding = _FakeGroundTruthBinding([{"v0": ("a_0", ("a",), 0, 0.0, 0.0)}])
+    binding.vehicle.advance()
+    reader.read(binding, time_s=0.0)
+
+    assert reader.distinct_vehicle_totals() == (LaneTurnVehicleCount(LaneId("a_0"), None, 1),)
