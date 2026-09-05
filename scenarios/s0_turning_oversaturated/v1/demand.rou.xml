@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<routes>
+    <vType id="car" accel="2.6" decel="4.5" sigma="0.0" length="5.0" maxSpeed="13.9"/>
+    <route id="r0" edges="top0A0 A0left0"/>
+    <route id="r1" edges="top0A0 A0bottom0"/>
+    <route id="r2" edges="top0A0 A0right0"/>
+    <route id="r3" edges="right0A0 A0top0"/>
+    <route id="r4" edges="right0A0 A0left0"/>
+    <route id="r5" edges="right0A0 A0bottom0"/>
+    <route id="r6" edges="bottom0A0 A0right0"/>
+    <route id="r7" edges="bottom0A0 A0top0"/>
+    <route id="r8" edges="bottom0A0 A0left0"/>
+    <route id="r9" edges="left0A0 A0bottom0"/>
+    <route id="r10" edges="left0A0 A0right0"/>
+    <route id="r11" edges="left0A0 A0top0"/>
+    <flow id="f0" route="r0" type="car" begin="0.00" end="180.00" period="8.00" departLane="free"/>
+    <flow id="f1" route="r1" type="car" begin="0.00" end="180.00" period="1.33" departLane="free"/>
+    <flow id="f2" route="r2" type="car" begin="0.00" end="180.00" period="4.00" departLane="free"/>
+    <flow id="f3" route="r3" type="car" begin="0.00" end="180.00" period="2.67" departLane="free"/>
+    <flow id="f4" route="r4" type="car" begin="0.00" end="180.00" period="2.00" departLane="free"/>
+    <flow id="f5" route="r5" type="car" begin="0.00" end="180.00" period="6.67" departLane="free"/>
+    <flow id="f6" route="r6" type="car" begin="0.00" end="180.00" period="5.33" departLane="free"/>
+    <flow id="f7" route="r7" type="car" begin="0.00" end="180.00" period="2.50" departLane="free"/>
+    <flow id="f8" route="r8" type="car" begin="0.00" end="180.00" period="3.33" departLane="free"/>
+    <flow id="f9" route="r9" type="car" begin="0.00" end="180.00" period="2.00" departLane="free"/>
+    <flow id="f10" route="r10" type="car" begin="0.00" end="180.00" period="3.33" departLane="free"/>
+    <flow id="f11" route="r11" type="car" begin="0.00" end="180.00" period="10.00" departLane="free"/>
+</routes>

@@ -1,3 +1,4 @@
+import json
 import math
 import sys
 from pathlib import Path
@@ -10,10 +11,16 @@ from cadence.simulation.scenario import load_scenario
 REPO_ROOT = Path(__file__).resolve().parents[1]
 S0_ROOT = REPO_ROOT / "scenarios" / "s0_single_intersection" / "v1"
 TURNING_ROOT = REPO_ROOT / "scenarios" / "s0_turning" / "v1"
+OVERSATURATED_ROOT = REPO_ROOT / "scenarios" / "s0_turning_oversaturated" / "v1"
 
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from build_s0_scenario import (  # noqa: E402
+    OVERSATURATED_END_S,
+    OVERSATURATED_PERIODS_S,
+    OVERSATURATED_SCENARIO_YAML,
+    OVERSATURATED_TIME_TO_TELEPORT_S,
+    TURNING_PERIODS_S,
     TURNING_SCENARIO_YAML,
     _alignment,
     _unit_direction,
@@ -151,10 +158,11 @@ def test_approach_pairs_tolerates_mildly_noisy_geometry():
     assert approach_pairs([incoming], [straight, turn]) == [("in", "s")]
 
 
-def test_both_scenarios_share_a_byte_identical_network():
+def test_all_scenarios_share_a_byte_identical_network():
     straight = (REPO_ROOT / "scenarios/s0_single_intersection/v1/network.net.xml").read_bytes()
     turning = (TURNING_ROOT / "network.net.xml").read_bytes()
-    assert straight == turning
+    oversaturated = (OVERSATURATED_ROOT / "network.net.xml").read_bytes()
+    assert straight == turning == oversaturated
 
 
 def test_the_turning_scenario_loads():
@@ -163,20 +171,69 @@ def test_the_turning_scenario_loads():
     assert paths.network.is_file() and paths.demand.is_file()
 
 
+def test_the_oversaturated_scenario_loads():
+    config, paths = load_scenario(OVERSATURATED_ROOT)
+    # TC-D01: a regime is a parameterised variant of s0_turning, not a separate network, so
+    # the id keeps the network's defining prefix rather than becoming "s0_oversaturated".
+    assert config.scenario_id == "s0_turning_oversaturated"
+    assert "regime" in config.description
+    assert paths.network.is_file() and paths.demand.is_file()
+
+
+def test_the_oversaturated_scenario_makes_a_teleport_possible_before_the_horizon():
+    # Inheriting time_to_teleport_s=300.0 against a 180 s horizon would make a teleport
+    # structurally impossible (spec docs/specs/2026-08-27-m1b-metrics.md section 10.2).
+    assert OVERSATURATED_TIME_TO_TELEPORT_S < OVERSATURATED_END_S
+
+
+def test_the_oversaturated_periods_are_scaled_not_flattened():
+    # Scaling keeps the ratios between TURNING_PERIODS_S entries -- a flattened demand would
+    # destroy the asymmetry section 8's mutation-detection test relies on.
+    scales = {
+        TURNING_PERIODS_S[source][target] / period
+        for source, targets in OVERSATURATED_PERIODS_S.items()
+        for target, period in targets.items()
+    }
+    assert len(scales) == 1
+
+
+def test_the_oversaturated_demand_keeps_the_design_asymmetry():
+    # The comment beside TURNING_PERIODS_S: no two approaches share a total volume, and no
+    # two movements within one approach share a period. Scaling every entry by the same
+    # constant preserves both, and this is what makes a movement-mapping error detectable.
+    for targets in OVERSATURATED_PERIODS_S.values():
+        periods = list(targets.values())
+        assert len(periods) == len(set(periods))
+    approach_rates = {
+        source: sum(1.0 / period for period in targets.values())
+        for source, targets in OVERSATURATED_PERIODS_S.items()
+    }
+    assert len(approach_rates) == len(set(approach_rates.values()))
+
+
 @pytest.mark.sumo
 def test_the_generator_reproduces_the_committed_scenarios_byte_for_byte(tmp_path):
     # Spec §10.3 claims this; the only prior test compared two committed files to each
     # other and never invoked the generator. This actually runs it.
     straight_root = tmp_path / "s0_single_intersection" / "v1"
     turning_root = tmp_path / "s0_turning" / "v1"
+    oversaturated_root = tmp_path / "s0_turning_oversaturated" / "v1"
     straight_root.mkdir(parents=True)
     turning_root.mkdir(parents=True)
+    oversaturated_root.mkdir(parents=True)
 
     build_network(straight_root / "network.net.xml")
     build_network(turning_root / "network.net.xml")
+    build_network(oversaturated_root / "network.net.xml")
     build_demand(straight_root / "network.net.xml", straight_root / "demand.rou.xml")
     build_turning_demand(turning_root / "demand.rou.xml")
     (turning_root / "scenario.yaml").write_text(TURNING_SCENARIO_YAML)
+    build_turning_demand(
+        oversaturated_root / "demand.rou.xml",
+        periods_s=OVERSATURATED_PERIODS_S,
+        depart_end_s=OVERSATURATED_END_S,
+    )
+    (oversaturated_root / "scenario.yaml").write_text(OVERSATURATED_SCENARIO_YAML)
 
     for relative in ("network.net.xml", "demand.rou.xml"):
         generated = (straight_root / relative).read_bytes()
@@ -188,9 +245,68 @@ def test_the_generator_reproduces_the_committed_scenarios_byte_for_byte(tmp_path
         committed = (TURNING_ROOT / relative).read_bytes()
         assert generated == committed, relative
 
+    for relative in ("network.net.xml", "demand.rou.xml", "scenario.yaml"):
+        generated = (oversaturated_root / relative).read_bytes()
+        committed = (OVERSATURATED_ROOT / relative).read_bytes()
+        assert generated == committed, relative
+
 
 def test_the_turning_demand_uses_every_movement():
     routes = ElementTree.parse(TURNING_ROOT / "demand.rou.xml").getroot()
     pairs = {tuple((route.get("edges") or "").split()) for route in routes.iter("route")}
     assert len(pairs) == 12, "four approaches times three movements"
     assert len({source for source, _target in pairs}) == 4
+
+
+def test_the_oversaturated_demand_uses_every_movement():
+    routes = ElementTree.parse(OVERSATURATED_ROOT / "demand.rou.xml").getroot()
+    pairs = {tuple((route.get("edges") or "").split()) for route in routes.iter("route")}
+    assert len(pairs) == 12, "four approaches times three movements"
+    assert len({source for source, _target in pairs}) == 4
+
+
+@pytest.mark.sumo
+def test_the_oversaturated_fixture_behaves_the_way_m1b_measured_it(tmp_path):
+    # Everything M1b's metrics are specified against was measured on this fixture, and until
+    # now those numbers lived only in a provenance comment. A comment rots silently
+    # (`CLAUDE.md` section 6); this is the same claim as a test.
+    import polars as pl
+
+    from cadence.cli import run_scenario
+    from cadence.simulation.sumo.binding import BindingKind
+
+    run_dir = run_scenario(
+        REPO_ROOT / "scenarios" / "s0_turning_oversaturated" / "v1",
+        tmp_path,
+        seed=1,
+        binding=BindingKind.LIBSUMO,
+    )
+    network = pl.read_parquet(run_dir / "state" / "network.parquet").sort("time_s")
+    horizon = network.tail(1)
+    trips = pl.read_parquet(run_dir / "evaluation" / "tripinfo.parquet")
+    arrival = trips["arrival"].cast(pl.Float64)
+
+    assert horizon["departed_total_veh"][0] == 361
+    assert horizon["arrived_total_veh"][0] == 183
+    assert horizon["active_veh"][0] == 178
+    assert horizon["pending_insertion_veh"][0] == 349
+    assert trips.height == 361
+    assert (arrival >= 0).sum() == 183
+
+    # ST-D26: the identity at every step, not only at the horizon, because a mid-run
+    # divergence that closes again by the end is exactly what a horizon check cannot see.
+    departed = network["departed_total_veh"]
+    assert (departed - network["arrived_total_veh"] - network["active_veh"]).abs().max() == 0
+
+    # It must not drain, or it exercises none of the censoring this milestone is about.
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["termination_reason"] == "horizon"
+
+    teleports = pl.read_parquet(run_dir / "state" / "teleport.parquet")
+    assert teleports.height == 13
+    assert teleports["vehicle_id"].n_unique() == 13
+    # --time-to-teleport.remove is pinned false, so every teleport returns its vehicle to the
+    # network rather than deleting it. Unequal counts would break the identity above.
+    events = pl.read_parquet(run_dir / "events.parquet")
+    kinds = dict(events["kind"].value_counts().rows())
+    assert kinds["teleport_started"] == kinds["teleport_ended"] == 13

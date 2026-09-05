@@ -128,7 +128,7 @@ def _junction_pairs(net: sumolib.net.Net) -> list[tuple[str, str]]:
     return approach_pairs(list(junction.getIncoming()), list(junction.getOutgoing()))
 
 
-def build_demand(network: Path, output: Path) -> None:
+def build_demand(network: Path, output: Path, *, depart_end_s: float = DEPART_END_S) -> None:
     net = sumolib.net.readNet(str(network))
     pairs = _junction_pairs(net)
     lines = [
@@ -142,7 +142,7 @@ def build_demand(network: Path, output: Path) -> None:
     for index, _ in enumerate(pairs):
         lines.append(
             f'    <flow id="f{index}" route="r{index}" type="car" '
-            f'begin="0.00" end="{DEPART_END_S:.2f}" period="{HEADWAY_S:.2f}" departLane="free"/>'
+            f'begin="0.00" end="{depart_end_s:.2f}" period="{HEADWAY_S:.2f}" departLane="free"/>'
         )
     lines.append("</routes>")
     output.write_text("\n".join(lines) + "\n")
@@ -162,7 +162,12 @@ TURNING_PERIODS_S: dict[str, dict[str, float]] = {
 }
 
 
-def build_turning_demand(output: Path) -> None:
+def build_turning_demand(
+    output: Path,
+    *,
+    periods_s: dict[str, dict[str, float]] = TURNING_PERIODS_S,
+    depart_end_s: float = DEPART_END_S,
+) -> None:
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         "<routes>",
@@ -171,7 +176,7 @@ def build_turning_demand(output: Path) -> None:
     ]
     flows = [
         (source, target, period)
-        for source, targets in TURNING_PERIODS_S.items()
+        for source, targets in periods_s.items()
         for target, period in targets.items()
     ]
     for index, (source, target, _period) in enumerate(flows):
@@ -179,37 +184,97 @@ def build_turning_demand(output: Path) -> None:
     for index, (_source, _target, period) in enumerate(flows):
         lines.append(
             f'    <flow id="f{index}" route="r{index}" type="car" '
-            f'begin="0.00" end="{DEPART_END_S:.2f}" period="{period:.2f}" departLane="free"/>'
+            f'begin="0.00" end="{depart_end_s:.2f}" period="{period:.2f}" departLane="free"/>'
         )
     lines.append("</routes>")
     output.write_text("\n".join(lines) + "\n")
 
 
-TURNING_SCENARIO_YAML = """scenario_id: s0_turning
-scenario_version: 1
-description: >
-  The s0_cross network under an asymmetric turning demand. Every controlled link carries
-  traffic, and every approach lane serves two movements, so shared-lane queue attribution
-  and turn-ratio estimation have something to measure. Integration testing only.
-  Not for research claims.
-network_file: network.net.xml
-demand_file: demand.rou.xml
-begin_s: 0.0
-end_s: 600.0
-step_length_s: 1.0
-time_to_teleport_s: 300.0
-default_seed: 1
-"""
+def _turning_scenario_yaml(
+    scenario_id: str, description_body: str, *, end_s: float, time_to_teleport_s: float
+) -> str:
+    return (
+        f"scenario_id: {scenario_id}\n"
+        "scenario_version: 1\n"
+        "description: >\n"
+        f"{description_body}"
+        "network_file: network.net.xml\n"
+        "demand_file: demand.rou.xml\n"
+        "begin_s: 0.0\n"
+        f"end_s: {end_s:.1f}\n"
+        "step_length_s: 1.0\n"
+        f"time_to_teleport_s: {time_to_teleport_s:.1f}\n"
+        "default_seed: 1\n"
+    )
+
+
+TURNING_DESCRIPTION = (
+    "  The s0_cross network under an asymmetric turning demand. Every controlled link carries\n"
+    "  traffic, and every approach lane serves two movements, so shared-lane queue attribution\n"
+    "  and turn-ratio estimation have something to measure. Integration testing only.\n"
+    "  Not for research claims.\n"
+)
+
+TURNING_SCENARIO_YAML = _turning_scenario_yaml(
+    "s0_turning", TURNING_DESCRIPTION, end_s=600.0, time_to_teleport_s=300.0
+)
+
+OVERSATURATED_SCENARIO_ROOT = REPO_ROOT / "scenarios" / "s0_turning_oversaturated" / "v1"
+
+# Divides every TURNING_PERIODS_S entry, keeping their ratios -- not one flattened period --
+# so the asymmetry that lets a movement-mapping error be caught survives (spec
+# docs/specs/2026-08-27-m1b-metrics.md section 10.2 -- flattening destroys the property this
+# module's own comment says the demand exists for, that a movement-mapping error cannot hide
+# behind symmetry. Note that scaling buys no detection advantage over flattening: both score
+# 3 of 16 pairs against section 8's permutation. The reason is the invariant, not the count.
+# Measured at this scale over a 180 s
+# horizon (task-2 report): 361 departed, 178 still active, 349 never inserted, 13 teleports.
+OVERSATURATED_PERIOD_SCALE = 6.0
+
+OVERSATURATED_PERIODS_S: dict[str, dict[str, float]] = {
+    source: {target: period / OVERSATURATED_PERIOD_SCALE for target, period in targets.items()}
+    for source, targets in TURNING_PERIODS_S.items()
+}
+
+# Short enough to keep the test suite fast; equal to the demand's own depart window (below),
+# so the run cannot drain before the horizon by construction.
+OVERSATURATED_END_S = 180.0
+
+# Below OVERSATURATED_END_S, unlike the 300.0 s inherited default: spec section 10.2 measured
+# that 300.0 against a 180 s horizon makes a teleport structurally impossible, leaving every
+# teleport metric untested against the code path it exists for.
+OVERSATURATED_TIME_TO_TELEPORT_S = 30.0
+
+OVERSATURATED_DESCRIPTION = (
+    "  s0_turning under an oversaturated regime: TURNING_PERIODS_S scaled, not flattened, so\n"
+    "  the asymmetry that catches a movement-mapping error survives. A parameterised regime of\n"
+    "  s0_turning (TC-D01), not a new network; its own scenario id exists only because\n"
+    "  ScenarioConfig has no regime dimension yet. Integration testing only. Not for research\n"
+    "  claims.\n"
+)
+
+OVERSATURATED_SCENARIO_YAML = _turning_scenario_yaml(
+    "s0_turning_oversaturated",
+    OVERSATURATED_DESCRIPTION,
+    end_s=OVERSATURATED_END_S,
+    time_to_teleport_s=OVERSATURATED_TIME_TO_TELEPORT_S,
+)
 
 
 def main() -> int:
-    for root in (SCENARIO_ROOT, TURNING_SCENARIO_ROOT):
+    for root in (SCENARIO_ROOT, TURNING_SCENARIO_ROOT, OVERSATURATED_SCENARIO_ROOT):
         root.mkdir(parents=True, exist_ok=True)
         build_network(root / "network.net.xml")
     build_demand(SCENARIO_ROOT / "network.net.xml", SCENARIO_ROOT / "demand.rou.xml")
     build_turning_demand(TURNING_SCENARIO_ROOT / "demand.rou.xml")
     (TURNING_SCENARIO_ROOT / "scenario.yaml").write_text(TURNING_SCENARIO_YAML)
-    print(f"Wrote {SCENARIO_ROOT} and {TURNING_SCENARIO_ROOT}")
+    build_turning_demand(
+        OVERSATURATED_SCENARIO_ROOT / "demand.rou.xml",
+        periods_s=OVERSATURATED_PERIODS_S,
+        depart_end_s=OVERSATURATED_END_S,
+    )
+    (OVERSATURATED_SCENARIO_ROOT / "scenario.yaml").write_text(OVERSATURATED_SCENARIO_YAML)
+    print(f"Wrote {SCENARIO_ROOT}, {TURNING_SCENARIO_ROOT} and {OVERSATURATED_SCENARIO_ROOT}")
     return 0
 
 
