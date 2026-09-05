@@ -106,6 +106,11 @@ class TeleportKind(StrEnum):
 class Traversal:
     time_s: float
     vehicle_id: VehicleId
+    # The lane the vehicle stood on immediately before this traversal. Unlike connection_id
+    # below, it resolves for all 315 traversals rather than only the 306 whose exit lane
+    # pairs uniquely with one entry lane, which is what makes the ground-truth cross-tab
+    # join exact (ST-D31).
+    from_lane_id: LaneId
     movement_id: MovementId
     # None when the vehicle changed lane inside the junction, or when its exit lane is one
     # of two the approach serves on that edge. The movement always resolves; the connection

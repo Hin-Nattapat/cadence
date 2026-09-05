@@ -64,6 +64,18 @@ def test_no_internal_lane_is_recorded(topology):
 
 
 @pytest.mark.sumo
+def test_the_fleet_is_recorded(topology):
+    # ST-D32: length is already recoverable from occupancy, minGap is not recoverable from
+    # anything else the run directory carries -- demand.rou.xml's vType sets neither
+    # accel-family parameter nor minGap, so SUMO's 2.5 m default applies.
+    car = topology.vehicle_types["car"]
+    assert car.type_id == "car"
+    assert car.length_m == 5.0
+    assert car.min_gap_m == 2.5
+    assert car.max_speed_mps == 13.9
+
+
+@pytest.mark.sumo
 def test_the_signal_program_is_recorded(topology):
     # Without this, phase_index is an integer with no meaning, min and max green are
     # recoverable from nothing, and a phase that is never served leaves no trace at all -
@@ -83,6 +95,7 @@ def test_the_active_program_is_selected_when_several_are_defined():
     binding.lane.getIDList.return_value = ["top0A0_0"]
     binding.lane.getLength.return_value = 100.0
     binding.lane.getMaxSpeed.return_value = 13.89
+    binding.vehicletype.getIDList.return_value = []
     binding.trafficlight.getIDList.return_value = ["A0"]
     binding.trafficlight.getProgram.return_value = "actuated"
     binding.trafficlight.getControlledLinks.return_value = []
@@ -108,6 +121,7 @@ def test_the_first_logic_is_recorded_when_no_program_matches():
     binding.lane.getIDList.return_value = ["top0A0_0"]
     binding.lane.getLength.return_value = 100.0
     binding.lane.getMaxSpeed.return_value = 13.89
+    binding.vehicletype.getIDList.return_value = []
     binding.trafficlight.getIDList.return_value = ["A0"]
     binding.trafficlight.getProgram.return_value = "unknown"
     binding.trafficlight.getControlledLinks.return_value = []

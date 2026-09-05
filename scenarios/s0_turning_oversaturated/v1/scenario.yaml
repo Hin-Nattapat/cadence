@@ -1,0 +1,15 @@
+scenario_id: s0_turning_oversaturated
+scenario_version: 1
+description: >
+  s0_turning under an oversaturated regime: TURNING_PERIODS_S scaled, not flattened, so
+  the asymmetry that catches a movement-mapping error survives. A parameterised regime of
+  s0_turning (TC-D01), not a new network; its own scenario id exists only because
+  ScenarioConfig has no regime dimension yet. Integration testing only. Not for research
+  claims.
+network_file: network.net.xml
+demand_file: demand.rou.xml
+begin_s: 0.0
+end_s: 180.0
+step_length_s: 1.0
+time_to_teleport_s: 30.0
+default_seed: 1

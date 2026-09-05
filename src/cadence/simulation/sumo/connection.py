@@ -11,7 +11,7 @@ from types import ModuleType, TracebackType
 from typing import Self
 
 from cadence.simulation.events import EventKind, SimulationEvent, StepResult
-from cadence.simulation.ground_truth import SimulationGroundTruth
+from cadence.simulation.ground_truth import LaneTurnVehicleCount, SimulationGroundTruth
 from cadence.simulation.manifest import TerminationReason
 from cadence.simulation.scenario import ScenarioConfig, ScenarioPaths
 from cadence.simulation.state import TeleportEvent, TeleportKind
@@ -149,6 +149,14 @@ class SumoConnection:
         if self._ground_truth is None:
             raise RuntimeError("simulation connection is closed")
         return self._ground_truth.read(binding, float(binding.simulation.getTime()))
+
+    def read_distinct_vehicle_totals(self) -> tuple[LaneTurnVehicleCount, ...]:
+        # ST-D01, ST-D09: same reasoning as read_ground_truth() -- the privileged reader is
+        # reached through one named, greppable call, not returned from step().
+        self._require_open()
+        if self._ground_truth is None:
+            raise RuntimeError("simulation connection is closed")
+        return self._ground_truth.distinct_vehicle_totals()
 
     def unmatched_traversals(self) -> int:
         _, traversal_detector = self._require_extraction()

@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 
-from conftest import BINDING_MODULE, SRC_ROOT
+from conftest import BINDING_MODULE, METRICS_ROOT, SRC_ROOT
 
 BANNED_IN_ZONE_A = {"traci", "libsumo", "studies"}
 
@@ -202,3 +202,59 @@ def test_the_strictness_guard_catches_ignore_errors_true():
     fabricated = {"overrides": [{"module": ["cadence.*"], "ignore_errors": True}]}
     violations = _relaxed_cadence_overrides(fabricated)
     assert violations == [(["cadence.*"], {"ignore_errors"})]
+
+
+# ST-D30: the privileged partition's name, spelled out once here so the check can look
+# for it -- the rule it enforces is that no file under METRICS_ROOT spells it anywhere.
+PRIVILEGED_PARTITION_NAME = "ground_truth"
+SUMO_BINDING_PACKAGE = "cadence.simulation.sumo"
+
+
+def _scanned_py_files(root: Path) -> list[Path]:
+    # GOTCHA: `rglob` on a directory that does not exist (moved, renamed, typo'd) yields
+    # nothing and every fence below would pass vacuously. A moved METRICS_ROOT must fail
+    # loudly, not go green with nothing scanned.
+    paths = sorted(root.rglob("*.py"))
+    assert paths, f"{root} matched no files"
+    return paths
+
+
+def test_the_metrics_package_never_names_the_privileged_partition():
+    offenders = [
+        str(path.relative_to(SRC_ROOT))
+        for path in _scanned_py_files(METRICS_ROOT)
+        if PRIVILEGED_PARTITION_NAME in path.read_text()
+    ]
+    assert not offenders, "ST-D30 violated: " + "; ".join(offenders)
+
+
+def _imports_the_sumo_binding_package(path: Path) -> bool:
+    tree = ast.parse(path.read_text(), filename=str(path))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+            SUMO_BINDING_PACKAGE
+        ):
+            return True
+        if isinstance(node, ast.Import) and any(
+            alias.name.startswith(SUMO_BINDING_PACKAGE) for alias in node.names
+        ):
+            return True
+    return False
+
+
+def test_the_metrics_package_imports_nothing_from_the_sumo_binding_layer():
+    # spec §6.1: the metrics package reads manifest.json, topology/, state/ and
+    # evaluation/ off disk -- never the simulator binding that produced them.
+    offenders = [
+        str(path.relative_to(SRC_ROOT))
+        for path in _scanned_py_files(METRICS_ROOT)
+        if _imports_the_sumo_binding_package(path)
+    ]
+    assert not offenders, "ST-D30 violated: " + "; ".join(offenders)
+
+
+def test_the_sumo_binding_import_detector_catches_a_deliberate_violation(tmp_path):
+    # GOTCHA: a boundary test that cannot fail is worthless. This proves the detector works.
+    offender = tmp_path / "offender.py"
+    offender.write_text("from cadence.simulation.sumo.connection import SumoConnection\n")
+    assert _imports_the_sumo_binding_package(offender)

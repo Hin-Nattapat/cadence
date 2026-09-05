@@ -11,7 +11,11 @@ from cadence.simulation.artifacts import (
     RunRecorder,
     _as_row,
 )
-from cadence.simulation.ground_truth import LaneTurnCount, SimulationGroundTruth
+from cadence.simulation.ground_truth import (
+    LaneTurnCount,
+    LaneTurnVehicleCount,
+    SimulationGroundTruth,
+)
 from cadence.simulation.state import (
     CanonicalTrafficState,
     ConnectionState,
@@ -30,6 +34,7 @@ from cadence.simulation.topology import (
     NetworkTopology,
     PhaseInfo,
     TurnDirection,
+    VehicleTypeInfo,
     build_movements,
     movement_id,
 )
@@ -72,6 +77,9 @@ def _topology() -> NetworkTopology:
                 signals=(SignalState.GREEN_PROTECTED,),
             ),
         ),
+        vehicle_types={
+            "car": VehicleTypeInfo(type_id="car", length_m=5.0, min_gap_m=2.5, max_speed_mps=13.9)
+        },
     )
 
 
@@ -97,7 +105,9 @@ def _state(time_s: float, topology: NetworkTopology) -> CanonicalTrafficState:
                 (ConnectionState(ConnectionId("a_0|b_0"), SignalState.GREEN_PROTECTED),),
             )
         },
-        traversals=(Traversal(time_s, VehicleId("v0"), identifier, ConnectionId("a_0|b_0")),),
+        traversals=(
+            Traversal(time_s, VehicleId("v0"), LaneId("a_0"), identifier, ConnectionId("a_0|b_0")),
+        ),
         network=NetworkState(2, 0, 3, 1, 0),
     )
 
@@ -115,6 +125,9 @@ def test_the_run_directory_has_the_specified_shape(tmp_path, recorder):
         teleports=(),
         truth=SimulationGroundTruth(1.0, (LaneTurnCount(LaneId("a_0"), EdgeId("b"), 2, 1, 4.0),)),
     )
+    run_recorder.record_distinct_vehicle_totals(
+        (LaneTurnVehicleCount(LaneId("a_0"), EdgeId("b"), 1),)
+    )
     tripinfo = tmp_path / "tripinfo.xml"
     tripinfo.write_text(_TRIPINFO_XML)
     run_recorder.write_tripinfo(tripinfo)
@@ -124,6 +137,7 @@ def test_the_run_directory_has_the_specified_shape(tmp_path, recorder):
         f"{TOPOLOGY_DIR}/lane.parquet",
         f"{TOPOLOGY_DIR}/connection.parquet",
         f"{TOPOLOGY_DIR}/tls_program.parquet",
+        f"{TOPOLOGY_DIR}/vehicle_type.parquet",
         f"{STATE_DIR}/lane.parquet",
         f"{STATE_DIR}/intersection.parquet",
         f"{STATE_DIR}/signal.parquet",
@@ -132,6 +146,7 @@ def test_the_run_directory_has_the_specified_shape(tmp_path, recorder):
         f"{STATE_DIR}/traversal.parquet",
         f"{STATE_DIR}/teleport.parquet",
         f"{GROUND_TRUTH_DIR}/lane_turn.parquet",
+        f"{GROUND_TRUTH_DIR}/lane_turn_vehicle.parquet",
         f"{EVALUATION_DIR}/tripinfo.parquet",
     ):
         assert (tmp_path / relative).is_file(), relative
@@ -185,9 +200,9 @@ def test_traversal_rows_are_sorted_by_time_then_vehicle(tmp_path, recorder):
     unsorted = dataclasses.replace(
         _state(1.0, topology),
         traversals=(
-            Traversal(1.0, VehicleId("v9"), identifier, ConnectionId("a_0|b_0")),
-            Traversal(1.0, VehicleId("v1"), identifier, ConnectionId("a_0|b_0")),
-            Traversal(0.5, VehicleId("v5"), identifier, ConnectionId("a_0|b_0")),
+            Traversal(1.0, VehicleId("v9"), LaneId("a_0"), identifier, ConnectionId("a_0|b_0")),
+            Traversal(1.0, VehicleId("v1"), LaneId("a_0"), identifier, ConnectionId("a_0|b_0")),
+            Traversal(0.5, VehicleId("v5"), LaneId("a_0"), identifier, ConnectionId("a_0|b_0")),
         ),
     )
     run_recorder.record(unsorted, (), SimulationGroundTruth(1.0, ()))
@@ -260,6 +275,58 @@ def test_the_residual_row_keeps_a_null_rather_than_the_string_none(tmp_path, rec
     assert teleport["from_lane_id"].to_list() == [None]
 
 
+def test_the_fleet_is_recorded_from_topology(tmp_path, recorder):
+    # ST-D32: the fleet record is a writer change, not a metric -- it comes from the
+    # topology at write() time, the same way topology/lane and topology/connection do.
+    run_recorder, _topology = recorder
+    run_recorder.write()
+
+    vehicle_type = pl.read_parquet(tmp_path / TOPOLOGY_DIR / "vehicle_type.parquet")
+    assert vehicle_type.columns == ["type_id", "length_m", "min_gap_m", "max_speed_mps"]
+    assert vehicle_type.row(0) == ("car", 5.0, 2.5, 13.9)
+
+
+def test_an_empty_fleet_still_declares_its_columns_and_types(tmp_path):
+    topology = NetworkTopology(lanes={}, connections={}, movements={}, phases=(), vehicle_types={})
+    run_recorder = RunRecorder(tmp_path, topology)
+    run_recorder.write()
+
+    vehicle_type = pl.read_parquet(tmp_path / TOPOLOGY_DIR / "vehicle_type.parquet")
+    assert vehicle_type.height == 0
+    assert vehicle_type.columns == ["type_id", "length_m", "min_gap_m", "max_speed_mps"]
+    assert vehicle_type.schema["length_m"] == pl.Float64
+
+
+def test_the_distinct_vehicle_cross_tab_is_written_once(tmp_path, recorder):
+    # ST-D31: unlike ground_truth/lane_turn, this table is not fed through record() per
+    # step -- it is the whole-run accumulator, written once via its own method.
+    run_recorder, _topology = recorder
+    run_recorder.record_distinct_vehicle_totals(
+        (
+            LaneTurnVehicleCount(LaneId("a_0"), EdgeId("b"), 3),
+            LaneTurnVehicleCount(LaneId("a_0"), None, 1),
+        )
+    )
+    run_recorder.write()
+
+    lane_turn_vehicle = pl.read_parquet(tmp_path / GROUND_TRUTH_DIR / "lane_turn_vehicle.parquet")
+    assert lane_turn_vehicle.columns == ["lane_id", "next_edge_id", "distinct_veh"]
+    assert lane_turn_vehicle.select("lane_id", "next_edge_id", "distinct_veh").rows() == [
+        ("a_0", "b", 3),
+        ("a_0", None, 1),
+    ]
+
+
+def test_an_empty_distinct_vehicle_cross_tab_still_declares_its_columns(tmp_path, recorder):
+    run_recorder, _topology = recorder
+    run_recorder.write()
+
+    lane_turn_vehicle = pl.read_parquet(tmp_path / GROUND_TRUTH_DIR / "lane_turn_vehicle.parquet")
+    assert lane_turn_vehicle.height == 0
+    assert lane_turn_vehicle.columns == ["lane_id", "next_edge_id", "distinct_veh"]
+    assert lane_turn_vehicle.schema["distinct_veh"] == pl.Int64
+
+
 def _two_tls_topology() -> NetworkTopology:
     # ST-D?? follow-up: link_index is scoped to one TLS, so a fixture with a single
     # intersection cannot catch a dict keyed on link_index alone colliding across TLSes.
@@ -300,6 +367,7 @@ def _two_tls_topology() -> NetworkTopology:
         connections=connections,
         movements=build_movements(connections.values()),
         phases=tuple(phases),
+        vehicle_types={},
     )
 
 

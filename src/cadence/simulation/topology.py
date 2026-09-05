@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from cadence.simulation.state import SignalState
-from cadence.types import ConnectionId, EdgeId, IntersectionId, LaneId, MovementId
+from cadence.types import ConnectionId, EdgeId, IntersectionId, LaneId, MovementId, VehicleTypeId
 
 
 class TurnDirection(StrEnum):
@@ -60,6 +60,14 @@ class MovementDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class VehicleTypeInfo:
+    type_id: VehicleTypeId
+    length_m: float
+    min_gap_m: float
+    max_speed_mps: float
+
+
+@dataclass(frozen=True, slots=True)
 class PhaseInfo:
     intersection_id: IntersectionId
     program_id: str
@@ -76,6 +84,7 @@ class NetworkTopology:
     connections: Mapping[ConnectionId, ConnectionInfo]
     movements: Mapping[MovementId, MovementDefinition]
     phases: tuple[PhaseInfo, ...]
+    vehicle_types: Mapping[str, VehicleTypeInfo]
 
 
 def movement_id(from_edge: EdgeId, to_edge: EdgeId) -> MovementId:

@@ -61,6 +61,23 @@ def test_step_does_not_carry_ground_truth(repo_root):
 
 
 @pytest.mark.sumo
+def test_distinct_vehicle_totals_is_read_once_after_the_run(repo_root):
+    # ST-D31: unlike read_ground_truth(), which is called every step, this accumulates
+    # across the whole run and is read once at the end.
+    config, paths = load_scenario(repo_root / TURNING)
+    with SumoConnection(config, paths, seed=1, binding=BindingKind.LIBSUMO) as connection:
+        while not connection.is_finished():
+            connection.step()
+            connection.read_ground_truth()
+        totals = connection.read_distinct_vehicle_totals()
+
+    assert totals, "s0_turning has traffic over its whole run"
+    keys = [(row.lane_id, row.next_edge_id) for row in totals]
+    assert len(keys) == len(set(keys)), "one row per (lane, next edge) pair"
+    assert all(row.distinct_veh > 0 for row in totals)
+
+
+@pytest.mark.sumo
 def test_the_cross_tab_conserves_the_lane_count(repo_root):
     # Spec 6.1: a vehicle on its final edge has no next edge and appears in no row, while
     # getLastStepHaltingNumber counts it. No threshold choice fixes that, so the residual

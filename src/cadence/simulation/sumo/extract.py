@@ -14,7 +14,11 @@ from collections.abc import Iterable, Mapping
 from types import MappingProxyType, ModuleType
 
 from cadence.simulation.events import EventKind, SimulationEvent
-from cadence.simulation.ground_truth import LaneTurnCount, SimulationGroundTruth
+from cadence.simulation.ground_truth import (
+    LaneTurnCount,
+    LaneTurnVehicleCount,
+    SimulationGroundTruth,
+)
 from cadence.simulation.state import (
     CanonicalTrafficState,
     ConnectionState,
@@ -200,6 +204,7 @@ class TraversalDetector:
                             Traversal(
                                 time_s=time_s,
                                 vehicle_id=VehicleId(vehicle_id),
+                                from_lane_id=previous,
                                 movement_id=movement,
                                 connection_id=self._by_lane_pair.get((previous, lane_id)),
                             )
@@ -249,6 +254,9 @@ class GroundTruthReader:
     def __init__(self, topology: NetworkTopology) -> None:
         self._lanes = set(topology.lanes)
         self._routes: dict[str, tuple[str, ...]] = {}
+        # Accumulated across the whole run rather than per step: memory is bounded by the
+        # (lane, next edge) pairs actually observed, not by run length (ST-D31).
+        self._distinct_veh: dict[tuple[LaneId, EdgeId | None], set[str]] = {}
 
     def read(self, binding: ModuleType, time_s: float) -> SimulationGroundTruth:
         counts: dict[tuple[LaneId, EdgeId], list[float]] = {}
@@ -272,17 +280,20 @@ class GroundTruthReader:
             speed = float(binding.vehicle.getSpeed(vehicle_id))
             halting = 1.0 if speed < HALTING_SPEED_MPS else 0.0
             waiting_s = float(binding.vehicle.getWaitingTime(vehicle_id))
+            next_edge_id: EdgeId | None
             if 0 <= index + 1 < len(route):
-                key = (lane_id, EdgeId(route[index + 1]))
-                tally = counts.setdefault(key, [0.0, 0.0, 0.0])
+                next_edge_id = EdgeId(route[index + 1])
+                tally = counts.setdefault((lane_id, next_edge_id), [0.0, 0.0, 0.0])
             else:
                 # The vehicle is on its final route edge: no next edge to attribute it to.
                 # It still occupies the lane, so it goes to that lane's residual row rather
                 # than being dropped (spec section 6.1, divergence reason 4 above).
+                next_edge_id = None
                 tally = residual[lane_id]
             tally[_TALLY_COUNT] += 1
             tally[_TALLY_HALTING] += halting
             tally[_TALLY_WAITING_S] += waiting_s
+            self._distinct_veh.setdefault((lane_id, next_edge_id), set()).add(vehicle_id)
         for gone in self._routes.keys() - active:
             del self._routes[gone]
 
@@ -309,4 +320,21 @@ class GroundTruthReader:
         return SimulationGroundTruth(
             time_s=time_s,
             lane_turns=tuple(turn_rows) + tuple(residual_rows),
+        )
+
+    def distinct_vehicle_totals(self) -> tuple[LaneTurnVehicleCount, ...]:
+        """The whole-run cross-tab: how many distinct vehicles, not vehicle-steps, per pair.
+
+        Called once, after the run ends, unlike read() which is called every step.
+        """
+        return tuple(
+            LaneTurnVehicleCount(
+                lane_id=lane_id,
+                next_edge_id=next_edge_id,
+                distinct_veh=len(vehicles),
+            )
+            for (lane_id, next_edge_id), vehicles in sorted(
+                self._distinct_veh.items(),
+                key=lambda item: (item[0][0], "" if item[0][1] is None else item[0][1]),
+            )
         )

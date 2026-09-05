@@ -19,7 +19,7 @@ Current milestone and roadmap: `docs/DIRECTION.md`.
 # 2. Two Zones, Two Standards (`PD-D07`)
 
 ```
-Zone A — PLATFORM CORE     simulation/  traffic/  control/  experiments/
+Zone A — PLATFORM CORE     simulation/  traffic/  control/  experiments/  metrics/
          The measuring instrument. If it is wrong, every experiment ever run is void.
          TDD, mypy --strict, unit suffixes, frozen state, stable interfaces.
 

@@ -102,7 +102,7 @@ a fixed-width rendering to stdout. `make status` is the human alias.
 ```
 CADENCE ── M1b  Derived Metrics                       3/9 tasks
 ──────────────────────────────────────────────────────────────
-  ✔ 1  Verify the per-lane turn split                   ST-D22
+  ✔ 1  Verify the per-lane turn split                   ST-D31
   ✔ 2  Reconcile the privilege split                    ST-D23
   ✔ 3  Queue attribution split
   ▶ 4  turn_ratio_sliding_window_v1

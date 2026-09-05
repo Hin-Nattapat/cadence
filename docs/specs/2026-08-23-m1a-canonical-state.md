@@ -875,7 +875,8 @@ peak halting across approach lanes 18, max 6 per lane
      of the eight approach lanes against the single movement its sibling serves, at the
      measured count. A pinned count of eight would survive a bug that changed which eight.
 
-  **What the three still miss (`ST-D22`).** A permutation confined to the two movements a
+  **What the three still miss (`ST-D22`, superseded by `ST-D31`, which splits its
+  deadline: the writer change at M1b, the estimator at M8).** A permutation confined to the two movements a
   single lane serves leaves the vehicle on-lane, so check 1 sees a reachable edge, and
   checks 2 and 3 are bit-identical — the off-lane rows are never touched. Per-lane
   conservation sums over next edges and cannot see a permutation either, and the twelve

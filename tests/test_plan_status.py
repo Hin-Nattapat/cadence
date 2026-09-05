@@ -283,10 +283,6 @@ def test_at_most_one_task_is_in_progress():
     assert len(doing) <= 1, f"more than one task is marked doing: {[t.number for t in doing]}"
 
 
-@pytest.mark.xfail(
-    reason="M1a's tasks are all done and M1b has no plan file yet; the pointer moves when it does",
-    strict=True,
-)
 def test_a_finished_milestone_is_not_still_marked_current():
     status = load(REPO_ROOT)
     remaining = [task for task in status.tasks if task.status in ("todo", "doing")]

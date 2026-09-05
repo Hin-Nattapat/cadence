@@ -70,6 +70,15 @@ def test_teleport_threshold_is_explicit():
     assert _flag(command, "--time-to-teleport") == "300.0"
 
 
+def test_a_vehicle_can_only_leave_by_arriving():
+    # M1b's accounting is departed = arrived + still-active. Removal on collision or on a
+    # long wait is a fourth outcome the identity has no term for, so neither is left to a
+    # SUMO default. Both values here are SUMO's current defaults, so no run changes.
+    command = build_sumo_command(CONFIG, PATHS, seed=1)
+    assert _flag(command, "--collision.action") == "teleport"
+    assert _flag(command, "--time-to-teleport.remove") == "false"
+
+
 def test_random_is_disabled_so_the_seed_governs():
     command = build_sumo_command(CONFIG, PATHS, seed=1)
     assert _flag(command, "--random") == "false"

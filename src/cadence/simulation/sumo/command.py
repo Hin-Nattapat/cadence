@@ -56,6 +56,17 @@ def build_sumo_command(
         # was only prose into one SUMO itself refuses to violate.
         "--device.rerouting.probability",
         "0",
+        # M1b's vehicle accounting rests on departed = arrived + still-active, and both of
+        # these turn a vehicle into a fourth outcome that the identity has no term for.
+        # Both values are SUMO's own defaults today, measured from --save-template, so this
+        # changes no run -- it stops a later SUMO from changing what a run means.
+        "--collision.action",
+        "teleport",
+        "--time-to-teleport.remove",
+        "false",
+        # A third way out, and the same argument: -1 disables it, which is SUMO's default.
+        "--max-depart-delay",
+        "-1",
     ]
     if tripinfo_path is not None:
         # ST-D18: M1b's trip metrics -- travel time, time loss, depart delay -- have no

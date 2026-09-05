@@ -65,6 +65,9 @@ def run_scenario(
         terminal_time_s = connection.time_s()
         unmatched_traversal_count = connection.unmatched_traversals()
         termination_reason = connection.termination_reason()
+        # Read before the connection closes, unlike record(): this cross-tab accumulates
+        # over the whole run and is emitted once rather than once per step (ST-D31).
+        distinct_vehicle_totals = connection.read_distinct_vehicle_totals()
 
     if termination_reason is None:
         # The loop only exits when is_finished() is true, so neither condition holding means
@@ -90,6 +93,7 @@ def run_scenario(
     )
 
     log.to_parquet(run_dir / "events.parquet")
+    recorder.record_distinct_vehicle_totals(distinct_vehicle_totals)
     recorder.write()
     recorder.write_tripinfo(tripinfo_xml)
     tripinfo_xml.unlink()
