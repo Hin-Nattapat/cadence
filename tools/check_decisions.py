@@ -87,7 +87,9 @@ def check(repo_root: Path) -> list[str]:
         for path in sorted(root.rglob(pattern)):
             if directory == "docs" and "plans" in path.relative_to(root).parts:
                 continue  # Historical plans contain fabricated IDs in test examples.
-            for cited in sorted(set(ID_PATTERN.findall(path.read_text()))):
+            text = path.read_text()
+            paragraphs = re.split(r"\n\s*\n", text)
+            for cited in sorted(set(ID_PATTERN.findall(text))):
                 location = path.relative_to(repo_root)
                 if cited not in registry:
                     problems.append(f"{location}: cites {cited}, which is not in the registry")
@@ -95,6 +97,17 @@ def check(repo_root: Path) -> list[str]:
                 if registry[cited].status in DEPENDABLE_STATUSES:
                     continue
                 if cited in supersede_records.get(str(path.resolve()), set()):
+                    continue
+                # A reader who meets a superseded id must be able to reach its replacement
+                # without leaving the paragraph. Naming both together is a citation of
+                # history rather than a dependency on it, and it is the only way a document
+                # can point forward to a decision issued after it was written.
+                # Paragraph, not file: DIRECTION.md names nearly every live id, so a
+                # whole-file test would silence this check there permanently.
+                successor_id = registry[cited].superseded_by
+                if successor_id and any(
+                    cited in block and successor_id in block for block in paragraphs
+                ):
                     continue
                 problems.append(
                     f"{location}: depends on {cited}, which is {registry[cited].status}"

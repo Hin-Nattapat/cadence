@@ -618,9 +618,60 @@ ST-D21:
 ST-D22:
   statement: "The cross-tab's per-lane turn split is unverified at M1a: a permutation confined to the movements one lane serves changes no assertion in the suite, because LaneTurnCount carries no vehicle key and so cannot be reconciled against the traversal stream. M1b must verify it before validating anything against it."
   source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
-  status:    adopted
+  status:    superseded
+  superseded_by: ST-D31
 
 ST-D23:
   statement: "The run directory is a three-way split, not a two-way one: the import ban fences ground_truth/ from code, but state/ and evaluation/ together reconstruct most of it, so an offline loader is bounded by nothing. Whether that is acceptable is M1b's to decide with its first real consumer."
   source:    ../docs/specs/2026-08-23-m1a-canonical-state.md
+  status:    adopted
+
+ST-D24:
+  statement: "Metrics are computed offline from the run directory alone, so a new metric or a new version of an existing one re-scores every historical run without re-simulating."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D25:
+  statement: "Every metric declares its population, not only its unit: a denominator that is implicit is a metric that cannot be compared."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D26:
+  statement: "Vehicle accounting has two orthogonal axes -- outcome (completed, in network at horizon, never inserted) and incidence (teleports) -- because a teleported vehicle normally completes and teleports are counted per event, not per vehicle."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D27:
+  statement: "A censored quantity is never averaged with an uncensored one: an unfinished trip's duration is how long the clock ran, not its travel time, and pooling the two reintroduces survivor bias."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D28:
+  statement: "A quantity whose unit already includes accumulated time is never time-integrated; a level whose unit does not is integrated with the step length and named for the window. Measured: summing waiting_total_now_s across steps overstates total waiting by sixteen times, while summing halting_count_veh over the same steps agrees with tripinfo to one percent."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D29:
+  statement: "A metric whose support does not exist in the run declares the limitation on its registry entry rather than emitting a confident number, and a metric with no honest definition is deferred rather than approximated."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D30:
+  statement: "The metrics package reads manifest, topology, state and evaluation, and never ground_truth. An oracle metric is legitimate but lives in a separate package with its own allowlist entry, so an oracle is visible from a metric's declared inputs."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D31:
+  statement: "The cross-tab verification splits its deadline: the writer change -- a per-vehicle key reconcilable against the traversal stream -- lands at M1b because every earlier run is otherwise permanently unreconcilable, while the estimator that consumes it moves to M8 with the rest of the turn-ratio work."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D32:
+  statement: "The run records the fleet's vehicle types with their length and minimum gap. Recording is a writer change and lands at M1b for the same reason the cross-tab's does: a run made without it cannot answer a storage question later, which is what ST-D19 promises it can."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
+  status:    adopted
+
+ST-D33:
+  statement: "Comparability and reproducibility are different questions over different field sets. Reproducibility asks whether two runs are the same run; comparability asks whether two runs may share a table, under which the controller must differ and the seed usually does."
+  source:    ../docs/specs/2026-08-27-m1b-metrics.md
   status:    adopted

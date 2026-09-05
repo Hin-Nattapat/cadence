@@ -13,9 +13,9 @@ The reasoning behind everything here is in
 ```
 Pre-implementation research        complete
 Project direction and conventions  decided  (PD-D01 .. PD-D07)
-Implementation                     M1a complete, M1b not started
+Implementation                     M1a complete, M1b in progress
 Current milestone                  M1 — Canonical State + Metrics
-Current plan                       docs/plans/2026-08-24-m1a-canonical-state.md
+Current plan                       docs/plans/2026-08-27-m1b-metrics.md
 ```
 
 ---
@@ -26,14 +26,14 @@ Current plan                       docs/plans/2026-08-24-m1a-canonical-state.md
 |---|---|---|---|
 | **M0** | Simulation Harness | deterministic SUMO lifecycle, TraCI/libsumo wrapper, scenario loader, seed wiring, event capture | done |
 | **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | current |
-| **M1b** | Derived Metrics | queue attribution split, `turn_ratio_sliding_window_v1`, the starvation guard, the residual-bias limitation, derived lane quantities (`queue_length_m`, `storage_capacity_veh`, `available_storage_ratio`) | not started |
+| **M1b** | Metrics | metric registry, trip / queue / network metrics, vehicle accounting, `queue_length_m`, `cadence metrics`, `cadence verify-run` | in progress |
 | **M2** | Signal Safety + Controller Contract | controller interface, action types, safety and transition executor, action masks, timeout and fallback | |
 | **M3** | Validation Controllers | tuned fixed-time, SUMO native actuated — the acceptance test for M2 | |
 | **M4** | RL Adapter | Gymnasium adapter, observation builder v1, action mapping, reward v1 | |
 | **M5** | PPO (+ DQN reference) | training and evaluation pipelines, checkpointing, multiple seeds | |
 | **M6** | Single-Intersection Experiments | fixed vs actuated vs RL on controlled synthetic demand | |
 | **M7** | Real-World Intersection | OSM-derived validated intersection. **The demonstration milestone.** | |
-| **M8** | Corridor + Max-Pressure | 3-5 signals, downstream storage, spillback metric | |
+| **M8** | Corridor + Max-Pressure | turn-ratio estimation and shared-lane queue attribution (moved here from M1b by `ST-D31`, since Max-Pressure is their first consumer), storage capacity, 3-5 signals, downstream storage, spillback metric | |
 | **M9** | Network-Aware RL vs Max-Pressure | oversaturation and spillback regimes — the Study 1 claim | |
 
 Architecturally supported but **not scheduled**: MPC, capacity-aware pressure variants,
@@ -119,7 +119,7 @@ Both are preconditions of M1b's first item, not improvements to schedule after i
 
 | # | What M1a leaves | Why it belongs to M1b |
 |---|---|---|
-| 1 | The cross-tab's per-lane turn split is unverified (`ST-D22`) | A permutation confined to the movements one lane serves relabels 74% of the table and changes no assertion in the suite. `LaneTurnCount` carries no vehicle key, so route look-ahead and realised exit — two independent measurements of the same quantity — cannot be reconciled. M1b's turn ratio estimator is the first thing that would be validated against this table, so it has to be verified before it is trusted, and the fix is a schema change its consumer should shape. |
+| 1 | The cross-tab's per-lane turn split is unverified (`ST-D31`, superseding `ST-D22`) | A permutation confined to the movements one lane serves relabels 74% of the table and changes no assertion in the suite, because `LaneTurnCount` carries no vehicle key. The deadline splits: the **writer** change lands at M1b, because every run written before it is permanently unreconcilable; the **estimator** that consumes it moves to M8 with the rest of the turn-ratio work. |
 | 2 | The privilege split bounds code, not data (`ST-D23`) | `state/traversal.parquet` carries per-vehicle turn identity and `evaluation/tripinfo.parquet` carries `departLane`; together they reconstruct 89% of the privileged cross-tab's vehicle-steps. The import ban and the allowlist test hold; a file read is fenced by nothing. `ST-D18`'s reasoning is about what a controller could see online, and the partition exists to bound an offline loader — the two have to be reconciled before the first loader is written. |
 
 ## Deferred minor findings
@@ -200,7 +200,7 @@ If a viewer is ever built, three constraints from the M0 measurements apply:
   from the start, not after S0 makes the naive approach look fine.
 - **Overlays are blocked on milestones, not on effort.** Network geometry, vehicle
   animation, traffic-light state and export are possible today. Queue and occupancy
-  overlays need M1's canonical state; a spillback overlay needs M4's metric definition;
+  overlays need M1's canonical state; a spillback overlay needs M8's metric definition;
   controller comparison needs more than one controller.
 
 Two things the original sketch omitted and should carry: the manifest's provenance
