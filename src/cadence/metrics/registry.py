@@ -8,6 +8,9 @@ lines cannot exist independently of each other.
 
 The privileged partition of the run directory is off limits to every module in this
 package, enforced by an architecture test elsewhere.
+
+The output shape every run-level metric returns is `scalar_frame`, declared here beside the
+contract it belongs to rather than copied into each module that emits one.
 """
 
 from __future__ import annotations
@@ -19,6 +22,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from types import MappingProxyType
 from typing import TypeVar
+
+import polars as pl
 
 F = TypeVar("F", bound=Callable[..., object])
 # `registry` is this module itself -- importing it again through the walk below is a no-op
@@ -89,6 +94,16 @@ class MetricDefinition:
                 "never-inserted bucket from its denominator without saying so -- "
                 "limitations must state it (ST-D29)"
             )
+
+
+def scalar_frame(name: str, value: float | None) -> pl.DataFrame:
+    """The one-row frame a run-level metric returns, with `value` in a column named `name`.
+
+    CONTRACT: `value` is None exactly when the metric's population is empty -- an empty
+    denominator is "no data", never 0.0 and never a raise, so a run where the population
+    happens to be empty still produces a row a reader can tell apart from a real zero.
+    """
+    return pl.DataFrame({name: [value]}, schema={name: pl.Float64})
 
 
 _DEFINITIONS: dict[str, MetricDefinition] = {}

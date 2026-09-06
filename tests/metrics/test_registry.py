@@ -16,6 +16,31 @@ from conftest import METRICS_ROOT
 # of the same-set comparison below.
 _MECHANISM_FILES = {"registry.py", "__init__.py"}
 
+# Every metric M1b's Tasks 7-8 emit: seven trip, three queue, five network, four teleport.
+_M1B_METRIC_NAMES = frozenset(
+    {
+        "travel_time_mean_completed_s_v1",
+        "waiting_time_mean_completed_s_v1",
+        "time_loss_mean_completed_s_v1",
+        "depart_delay_mean_completed_s_v1",
+        "time_in_network_at_horizon_mean_unfinished_s_v1",
+        "waiting_time_mean_unfinished_s_v1",
+        "time_loss_mean_unfinished_s_v1",
+        "queue_length_peak_m_v1",
+        "waiting_total_peak_s_v1",
+        "halting_delay_total_veh_s_v1",
+        "throughput_vehph_v1",
+        "completion_rate_departed_ratio_v1",
+        "completion_rate_due_ratio_v1",
+        "still_in_network_at_horizon_veh_v1",
+        "pending_insertion_at_horizon_veh_v1",
+        "teleport_incidence_count_v1",
+        "teleport_affected_veh_v1",
+        "completion_rate_teleported_ratio_v1",
+        "completion_rate_unaffected_ratio_v1",
+    }
+)
+
 # A metric-registering module planted only under a monkeypatched package __path__, never
 # imported by this test file itself -- see test_registered_metrics_discovers_a_module_this_
 # test_never_imports below.
@@ -192,9 +217,11 @@ def test_declared_and_emitted_metrics_are_the_same_set_in_both_directions():
     )
 
 
-def test_no_metric_is_declared_yet():
-    # Documents the state this task leaves the package in, per its own brief.
-    assert registry.registered_metrics() == {}
+def test_the_package_declares_exactly_the_metrics_m1b_emits():
+    # A containment check on two names is a rolling snapshot: it stays green while a metric
+    # is quietly dropped or a nineteenth appears unreviewed. The set is the assertion, so
+    # adding or removing a metric is a deliberate edit here (CLAUDE.md §7, spec §6.2).
+    assert set(registry.registered_metrics()) == _M1B_METRIC_NAMES
 
 
 def test_emitted_detector_finds_a_compute_function(tmp_path):
