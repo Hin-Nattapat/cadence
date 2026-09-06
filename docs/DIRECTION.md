@@ -15,8 +15,8 @@ Pre-implementation research        complete
 Project direction and conventions  decided  (PD-D01 .. PD-D07)
 Implementation                     M1 complete (M1a, M1b); M2 not started
 Current milestone                  M2 — Signal Safety + Controller Contract
-Current plan                       docs/plans/2026-08-27-m1b-metrics.md
-                                   (M1b's, finished; M2's plan opens with its spec)
+Current plan                       docs/plans/2026-09-06-m2-signal-plan-and-executor.md
+Program map                        docs/programs/2026-09-06-m2-signal-contract.md
 ```
 
 ---

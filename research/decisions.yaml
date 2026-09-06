@@ -675,3 +675,79 @@ ST-D33:
   statement: "Comparability and reproducibility are different questions over different field sets. Reproducibility asks whether two runs are the same run; comparability asks whether two runs may share a table, under which the controller must differ and the seed usually does."
   source:    ../docs/specs/2026-08-27-m1b-metrics.md
   status:    adopted
+
+
+# ======================================================================
+# M2 — Signal Safety + Controller Contract (docs/specs/2026-09-06-m2-signal-contract.md)
+# SIM-D: measured SUMO behaviour (prefix reserved by CADENCE_SUMO_SIMULATION_RESEARCH.md §12)
+# ======================================================================
+
+SIM-D01:
+  statement: "Under setRedYellowGreenState SUMO switches to a one-phase program named online whose phase lasts a day; getPhase freezes and getSpentDuration resets to a different origin on each call, so neither describes the signal; setProgram returns to the underlying program with its clock intact, as if the override had never happened (measured, SUMO 1.27.1)."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIM-D02:
+  statement: "setPhase(i) applies within the same step, restarts the phase clock, and the program continues from i by its own sequencing; setPhaseDuration(d) sets the remaining time once (measured, SUMO 1.27.1)."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIM-D03:
+  statement: "libsumo and traci produced identical simulator state under one traffic-light write sequence -- setRedYellowGreenState, setProgram, setPhase, setPhaseDuration -- on one intersection over sixty seconds (measured, SUMO 1.27.1). A hypothesis until a whole controller run compares byte for byte under both bindings."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    hypothesis
+
+SIG-D01:
+  statement: "Transitions are the network program's own phases, selected by setPhase; CADENCE never composes a lamp state, so SUMO's online program never occurs and canonical phase_index / phase_elapsed_s stay truthful. Every transition phase a plan needs must exist in the program, and validate-scenario refuses one that lacks it."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D02:
+  statement: "The safety envelope (per-stage minimum and maximum green) is scenario data in signal_plan.yaml beside scenario.yaml, hashed into the manifest as a comparability field; it is not controller configuration, because every controller shares it."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D03:
+  statement: "A stage is a program phase with at least one permissive signal and no yellow; its PhaseId is its program index and its permitted movements derive from its connections. Transition phases are never stages and can never be requested."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D04:
+  statement: "The executor is a pure state machine in control/ that emits SignalCommands as data; exactly one module under simulation/sumo/ applies them. A controller never sees a command."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D05:
+  statement: "A stage requested during minimum green or during a transition is deferred and served the first step it is legal; a newer request replaces an older pending one and the replacement is logged; every request, deferral, replacement, transition and forced switch is a row in state/signal_event.parquet, and events.parquet keeps its M0 schema."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D06:
+  statement: "At maximum green with no legal request pending the executor transitions to the next stage in program order and records max_green_forced, whatever the controller said; KeepPhase stays legal as the contract's no-op and the mask exposes max_green_reached."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D07:
+  statement: "A controller's decision budget is the decision interval by construction. Wall-clock lateness is measured by the runner outside Zone A, recorded per call in controller.json and as a non-reproducible manifest count that verify-run refuses to compare across, and never alters the run or enters a parquet. The only fallback is for an action outside the mask -- a request for a non-stage or for the current stage -- and it is KeepPhase, logged as action_rejected."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D08:
+  statement: "controller_id = none bypasses the safety layer entirely and its output is byte-identical to pre-M2 runs over the M1 artifact set; the fixed-time test controller that replays the static program through the executor must match it byte for byte over that set, at a decision interval that divides every program switch and under an envelope that brackets each stage's duration -- the milestone's acceptance test."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D09:
+  statement: "ControllerAction v1 is KeepPhase | RequestPhase(PhaseId), versioned controller_action:v1; KeepPhase is the no-op, RequestNextPhase is a call-site derivation, and ExtendPhase and SetGreenSplit are not v1."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D10:
+  statement: "The decision interval is run metadata: decision_interval_s, a multiple of step_length_s, recorded in the manifest as a comparability field; controllers are called only at interval boundaries and the executor runs every step."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
+
+SIG-D11:
+  statement: "Controller configuration is hashed into controller_config_sha256, a controller-identity manifest field (so two configurations of one controller are a controller comparison), and written to controller.json in the run directory."
+  source:    ../docs/specs/2026-09-06-m2-signal-contract.md
+  status:    adopted
