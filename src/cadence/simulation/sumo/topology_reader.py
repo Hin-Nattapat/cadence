@@ -16,6 +16,7 @@ from cadence.simulation.topology import (
     LaneInfo,
     NetworkTopology,
     PhaseInfo,
+    ProgramType,
     TurnDirection,
     VehicleTypeInfo,
     build_movements,
@@ -36,6 +37,16 @@ _BY_DIRECTION_CHARACTER: dict[str, TurnDirection] = {
     "R": TurnDirection.PARTIALLY_RIGHT,
 }
 
+# The TRAFFICLIGHT_TYPE_* constants of traci/constants.py (1.27.1, lines 626-629), which
+# traci.Logic's own docstring names as the values of its `type` argument. Spelled out rather
+# than imported: only binding.py may import traci (ARCH-D02).
+_BY_PROGRAM_TYPE_CODE: dict[int, ProgramType] = {
+    0x00: ProgramType.STATIC,
+    0x03: ProgramType.ACTUATED,
+    0x04: ProgramType.NEMA,
+    0x05: ProgramType.DELAY_BASED,
+}
+
 # Index of the outgoing lane and of the direction character in a traci lane.getLinks tuple:
 # (toLane, hasPrio, isOpen, hasFoe, viaLane, state, direction, length).
 _LINK_TO_LANE = 0
@@ -47,6 +58,13 @@ def _turn_direction(character: str) -> TurnDirection:
         return _BY_DIRECTION_CHARACTER[character]
     except KeyError:
         raise ValueError(f"unknown SUMO link direction: {character!r}") from None
+
+
+def _program_type(code: int) -> ProgramType:
+    try:
+        return _BY_PROGRAM_TYPE_CODE[code]
+    except KeyError:
+        raise ValueError(f"unknown SUMO traffic-light program type: {code!r}") from None
 
 
 def _edge_and_index(lane_id: str) -> tuple[EdgeId, int]:
@@ -86,6 +104,7 @@ def read_topology(binding: ModuleType) -> NetworkTopology:
                 PhaseInfo(
                     intersection_id=IntersectionId(tls_id),
                     program_id=str(logic.programID),
+                    program_type=_program_type(int(logic.type)),
                     phase_index=phase_index,
                     duration_s=float(phase.duration),
                     min_duration_s=float(phase.minDur),

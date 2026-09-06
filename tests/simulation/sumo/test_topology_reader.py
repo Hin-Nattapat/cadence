@@ -7,10 +7,13 @@ from cadence.simulation.scenario import load_scenario
 from cadence.simulation.sumo.binding import BindingKind
 from cadence.simulation.sumo.connection import SumoConnection
 from cadence.simulation.sumo.topology_reader import read_topology
-from cadence.simulation.topology import TurnDirection
+from cadence.simulation.topology import ProgramType, TurnDirection
 from cadence.types import LaneId
 
 TURNING = "scenarios/s0_turning/v1"
+# traci/constants.py 1.27.1: TRAFFICLIGHT_TYPE_STATIC = 0x00, TRAFFICLIGHT_TYPE_ACTUATED = 0x03.
+STATIC_PROGRAM_TYPE_CODE = 0x00
+ACTUATED_PROGRAM_TYPE_CODE = 0x03
 
 
 @pytest.fixture
@@ -101,10 +104,12 @@ def test_the_active_program_is_selected_when_several_are_defined():
     binding.trafficlight.getControlledLinks.return_value = []
     fallback = SimpleNamespace(
         programID="0",
+        type=STATIC_PROGRAM_TYPE_CODE,
         phases=[SimpleNamespace(duration=42.0, minDur=42.0, maxDur=42.0, state="G")],
     )
     active = SimpleNamespace(
         programID="actuated",
+        type=ACTUATED_PROGRAM_TYPE_CODE,
         phases=[SimpleNamespace(duration=10.0, minDur=5.0, maxDur=20.0, state="G")],
     )
     binding.trafficlight.getAllProgramLogics.return_value = [fallback, active]
@@ -127,10 +132,12 @@ def test_the_first_logic_is_recorded_when_no_program_matches():
     binding.trafficlight.getControlledLinks.return_value = []
     first = SimpleNamespace(
         programID="0",
+        type=STATIC_PROGRAM_TYPE_CODE,
         phases=[SimpleNamespace(duration=42.0, minDur=42.0, maxDur=42.0, state="G")],
     )
     second = SimpleNamespace(
         programID="1",
+        type=STATIC_PROGRAM_TYPE_CODE,
         phases=[SimpleNamespace(duration=10.0, minDur=5.0, maxDur=20.0, state="G")],
     )
     binding.trafficlight.getAllProgramLogics.return_value = [first, second]
@@ -138,3 +145,48 @@ def test_the_first_logic_is_recorded_when_no_program_matches():
     topology = read_topology(binding)
 
     assert {phase.program_id for phase in topology.phases} == {"0"}
+
+
+def test_the_actuated_program_type_is_carried_through_to_the_phase():
+    binding = MagicMock()
+    binding.lane.getIDList.return_value = ["top0A0_0"]
+    binding.lane.getLength.return_value = 100.0
+    binding.lane.getMaxSpeed.return_value = 13.89
+    binding.vehicletype.getIDList.return_value = []
+    binding.trafficlight.getIDList.return_value = ["A0"]
+    binding.trafficlight.getProgram.return_value = "actuated"
+    binding.trafficlight.getControlledLinks.return_value = []
+    binding.trafficlight.getAllProgramLogics.return_value = [
+        SimpleNamespace(
+            programID="actuated",
+            type=ACTUATED_PROGRAM_TYPE_CODE,
+            phases=[SimpleNamespace(duration=10.0, minDur=5.0, maxDur=20.0, state="G")],
+        )
+    ]
+
+    topology = read_topology(binding)
+
+    assert {phase.program_type for phase in topology.phases} == {ProgramType.ACTUATED}
+
+
+def test_a_program_type_sumo_does_not_document_is_refused():
+    # The safety layer refuses anything but static (spec §5.2); a code nobody mapped must not
+    # arrive there disguised as one.
+    binding = MagicMock()
+    binding.lane.getIDList.return_value = ["top0A0_0"]
+    binding.lane.getLength.return_value = 100.0
+    binding.lane.getMaxSpeed.return_value = 13.89
+    binding.vehicletype.getIDList.return_value = []
+    binding.trafficlight.getIDList.return_value = ["A0"]
+    binding.trafficlight.getProgram.return_value = "0"
+    binding.trafficlight.getControlledLinks.return_value = []
+    binding.trafficlight.getAllProgramLogics.return_value = [
+        SimpleNamespace(
+            programID="0",
+            type=0x7F,
+            phases=[SimpleNamespace(duration=42.0, minDur=42.0, maxDur=42.0, state="G")],
+        )
+    ]
+
+    with pytest.raises(ValueError, match="unknown SUMO traffic-light program type"):
+        read_topology(binding)

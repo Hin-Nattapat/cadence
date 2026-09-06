@@ -17,6 +17,13 @@ from cadence.simulation.state import SignalState
 from cadence.types import ConnectionId, EdgeId, IntersectionId, LaneId, MovementId, VehicleTypeId
 
 
+class ProgramType(StrEnum):
+    STATIC = "static"
+    ACTUATED = "actuated"
+    NEMA = "nema"
+    DELAY_BASED = "delay_based"
+
+
 class TurnDirection(StrEnum):
     STRAIGHT = "straight"
     TURN = "turn"
@@ -71,6 +78,11 @@ class VehicleTypeInfo:
 class PhaseInfo:
     intersection_id: IntersectionId
     program_id: str
+    # The kind of program this phase belongs to, carried here because a phase is the only
+    # per-program record the topology holds. It stays in memory: tls_program.parquet's
+    # schema is fixed by ST-D08 and an actuated program is refused before a run, not
+    # analysed after one (spec §5.2).
+    program_type: ProgramType
     phase_index: int
     duration_s: float
     min_duration_s: float
