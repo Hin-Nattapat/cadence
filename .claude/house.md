@@ -2,6 +2,8 @@
 repos: [.]
 base-branch: main
 programs-dir: docs/programs
+# Python test files here run 300-550 lines; 400 cannot be cut along a file boundary.
+review-chunk-lines: 600
 review-max-chunks: 4
 ---
 

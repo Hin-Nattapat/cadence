@@ -240,7 +240,7 @@ class Stage:
     max_green_s: float
     program_duration_s: float                     # what the static program would run
     transition_phase_indices: tuple[int, ...]     # the successor chain, program order
-    movement_signature: frozenset[MovementId]     # the network-independent identity, see below
+    movement_signature -> frozenset[MovementId]   # a property: permitted_movements under its identity name
 
 @dataclass(frozen=True)
 class SignalPlan:
@@ -305,7 +305,8 @@ controller's action:
                plan.transition_phase_duration_s[index]:
                  more chain → SetPhase(next in chain)
                  chain done → SetPhase(target); mode = IN_STAGE(target); entered_at_s = now;
-                              pending = None if pending == target; record stage_entered
+                              record stage_entered (pending can only name another stage here:
+                              step 2 rejects the target as already_current, step 4 cleared it)
 4. serve       IN_STAGE and pending is not None and pending ≠ current and
                elapsed_s >= min_green_s:
                  mode = IN_TRANSITION(pending, stage.transition_phase_indices)
@@ -313,9 +314,11 @@ controller's action:
 5. force       IN_STAGE and pending is None and elapsed_s >= max_green_s:
                  same as 4 with target = plan.next_stage_in_program_order(current);
                  record max_green_forced
-6. hold        on entering a stage: SetRemainingDuration_s(max_green_s + step_length_s), so
-               SUMO's own switch — which would fire at stage.program_duration_s — never
-               pre-empts the executor. Transition phases keep the program's own timing.
+6. hold        every stage the executor is responsible for owes one
+               SetRemainingDuration_s(max_green_s + step_length_s): a stage it enters, on
+               entry; the stage it was seeded into, on its first tick. Without it SUMO's own
+               switch fires at stage.program_duration_s and step 1 raises on the next tick
+               (phase 1 review). Transition phases keep the program's own timing.
 ```
 
 Every command is data: `SetPhase(intersection_id, phase_index)` and
@@ -332,7 +335,7 @@ Determinism (`AP-06`, R7): `tick` is a function of (plan, mode, pending, `now_s`
 | refused when | where |
 |---|---|
 | a stage is followed by another stage with no transition phase between | plan build; `validate-scenario` |
-| a transition phase turns on a signal its preceding stage had off | plan build; `validate-scenario` |
+| a transition phase permits movement on a connection its stage did not permit, or shows `YELLOW` on one its stage did not permit — a "yellow" that is a stage in disguise. `RED`, `RED_YELLOW` and both `OFF_*` states are never "on": a red-yellow program (`--tls.red-yellow.time`) is legal | plan build; `validate-scenario` |
 | `signal_plan.yaml` names a stage the program lacks, or omits one it has | plan build; `validate-scenario` |
 | `min_green_s < step_length_s` or `max_green_s < min_green_s` | model validation |
 | a scenario has no `signal_plan.yaml` and a controller other than `none` is requested | `cadence run` |
@@ -360,11 +363,13 @@ A sibling of `events.parquet` (`ST-D08`), one row per executor decision:
 | `time_s` | Float64 | step at which the executor acted |
 | `intersection_id` | String | |
 | `kind` | String | `stage_requested` · `request_deferred` · `request_superseded` · `transition_started` · `stage_entered` · `max_green_forced` · `action_rejected` |
-| `from_phase_id` | Int64 (nullable) | stage or transition phase being left |
-| `to_phase_id` | Int64 (nullable) | stage requested / entered |
+| `from_phase_id` | Int64 (nullable) | stage or transition phase being left; for `request_superseded`, the request that was replaced |
+| `to_phase_id` | Int64 (nullable) | stage requested / entered; for `request_superseded`, the request that replaced it |
 | `reason` | String (nullable) | for `request_deferred`: `min_green` or `in_transition`; for `action_rejected`: `not_a_stage` or `already_current` |
 
 Nothing wall-clock is ever written here (§6.5): every row is a function of simulated time.
+A forced switch is one decision and one row: `max_green_forced` stands in place of
+`transition_started`; `stage_entered` still closes it.
 
 Written by `RunRecorder` like every other state table, with a declared schema so a run with
 no controller still has a readable, empty table.
@@ -407,7 +412,8 @@ own configuration mapping, and the seed. Nothing else — no binding, no run dir
 `ControllerObservation` v1 (`controller_observation:v1`) is a view over canonical state
 (`ARCH-D03`): the intersection's `IntersectionState`, its approach `LaneState`s and
 `MovementState`s, the executor's `SignalPhaseState` (current stage, `elapsed_s`, pending
-request, in-transition flag, `max_green_reached`), the legal action mask (§6.4), and `now_s`,
+request, in-transition flag, `max_green_reached` — read as `phase_state(now_s)` for the tick being
+observed, never a stored earlier time), the legal action mask (§6.4), and `now_s`,
 for every controlled intersection. It is **O1** in `RL §4`'s fidelity ladder — lane-level
 virtual detection: counts, halting, occupancy, waiting; no vehicle positions, routes or
 turning intentions, which are privileged (`ST-D01`, `ST-D09`) — and every M2 run records that
@@ -660,6 +666,13 @@ one verified by running something. What moved:
 | `DIRECTION` §7 rows 6 and 7 triggered and unaddressed. | Row 7 taken in phase 1; row 6 declined with the reason (§7.4). |
 | No legal no-op at max green. | `KeepPhase` always legal; `SIG-D06` and `SIG-D07` reworded (§5.3, §6.4, §6.5). |
 | Smaller: `SIM-D01`'s description of the second reset; tick ordering; four omitted action variants, not two; a unit-less parameter; unprovenanced YAML numbers; the abort path writes no manifest today; M3 versus §7.3 as "the acceptance test". | Each fixed where it stood. |
+
+**Phase 1 gate 1 (2026-09-06, four chunks, 32 findings)** changed the spec in four places: §5.1 step 6
+now says a seeded stage owes the hold too (without it SUMO switches at the program duration on
+the first cycle); §5.1 step 3 no longer clears `pending`, which step 2 makes impossible; §5.2
+states the "turns a signal on" rule precisely, so red-yellow programs are legal and `OFF_*` counts
+as off; §5.4 records `request_superseded`'s columns and that `max_green_forced` replaces
+`transition_started`; §6.4 reads the phase state at the observed tick.
 
 The review also found `test_a_finished_milestone_is_not_still_marked_current` red on `main`
 since M1b's close-out merged: every task in the pointed-at plan was done while M2 was marked
