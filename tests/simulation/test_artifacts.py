@@ -33,6 +33,7 @@ from cadence.simulation.topology import (
     LaneInfo,
     NetworkTopology,
     PhaseInfo,
+    ProgramType,
     TurnDirection,
     VehicleTypeInfo,
     build_movements,
@@ -70,6 +71,7 @@ def _topology() -> NetworkTopology:
             PhaseInfo(
                 intersection_id=IntersectionId("A0"),
                 program_id="0",
+                program_type=ProgramType.STATIC,
                 phase_index=0,
                 duration_s=42.0,
                 min_duration_s=42.0,
@@ -355,6 +357,7 @@ def _two_tls_topology() -> NetworkTopology:
             PhaseInfo(
                 intersection_id=IntersectionId(intersection),
                 program_id="0",
+                program_type=ProgramType.STATIC,
                 phase_index=0,
                 duration_s=42.0,
                 min_duration_s=42.0,

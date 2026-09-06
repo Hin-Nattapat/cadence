@@ -29,7 +29,7 @@ class SignalCommand = SetPhase(intersection_id, phase_index) | SetRemainingDurat
 class SignalExecutor:
     def __init__(self, plan: SignalPlan, first: IntersectionState, now_s: float, step_length_s: float) -> None
     def tick(self, state: IntersectionState, now_s: float, request: PhaseId | None) -> tuple[tuple[SignalCommand, ...], tuple[SignalEvent, ...]]
-    @property phase_state -> SignalPhaseState   # current stage / target, elapsed_s, pending, in_transition, max_green_reached
+    def phase_state(self, now_s: float) -> SignalPhaseState   # at the observed tick: current stage / target, elapsed_s, pending, in_transition, max_green_reached, deferred_until_s
 
 # simulation/sumo/signal_writer.py — the one write site
 def apply_signal_commands(binding: ModuleType, commands: Iterable[SignalCommand]) -> None
@@ -38,7 +38,7 @@ def apply_signal_commands(binding: ModuleType, commands: Iterable[SignalCommand]
 ---
 
 ### Task 1: The golden digest, before anything else lands
-`status: todo`
+`status: done`
 **Files:** `tests/simulation/sumo/test_golden.py`, `tests/fixtures/golden/s0_turning-v1-seed1.json`
 
 Map R6 / spec `SIG-D08`. The M1 artifact set (spec §7.3) of a `controller_id = "none"` run of
@@ -55,7 +55,7 @@ was asked of it.
 ---
 
 ### Task 2: `signal_plan.yaml` and the manifest fields it needs
-`status: todo`
+`status: done`
 **Files:** `src/cadence/simulation/signal_plan_file.py`, `src/cadence/simulation/scenario.py`
 (loading the optional file), `src/cadence/simulation/manifest.py`, `scenarios/s0_turning/v1/signal_plan.yaml`,
 `scenarios/s0_turning_oversaturated/v1/signal_plan.yaml`, `tests/simulation/test_signal_plan_file.py`,
@@ -74,7 +74,7 @@ provenance comment, bracketing 42 s.
 ---
 
 ### Task 3: `SignalPlan` from the topology
-`status: todo`
+`status: done`
 **Files:** `src/cadence/control/__init__.py`, `src/cadence/control/plan.py`,
 `src/cadence/simulation/topology.py` (program `type` on the in-memory topology only),
 `src/cadence/simulation/sumo/topology_reader.py`, `tests/control/test_plan.py`,
@@ -96,7 +96,7 @@ connection time. `tls_program.parquet`'s schema does not change.
 ---
 
 ### Task 4: The executor, without SUMO
-`status: todo`
+`status: done`
 **Files:** `src/cadence/control/executor.py`, `src/cadence/control/events.py`
 (`SignalEvent`, the kinds of spec §5.4), `tests/control/test_executor.py`
 
@@ -127,8 +127,12 @@ green regardless of the action, and the hold command on stage entry.
 import `_SCHEMAS`
 
 Spec §5.4, `SIG-D04`. Commands become `setPhase` / `setPhaseDuration` calls here and nowhere
-else. `RunRecorder` writes `state/signal_event.parquet` with a declared schema, empty under
-`none`.
+else; within a tick `SetPhase` precedes `SetRemainingDuration_s` and the writer preserves the
+order. `RunRecorder` writes `state/signal_event.parquet` with a declared schema, empty under
+`none`. Gate 1 found `artifacts.py:276`'s `by_index` a plain dict that keeps the *last*
+connection per `(tls, link_index)` while `plan.py` keeps them all — s0 has one per index, so
+it is latent; fix it here (a list per index, like the plan) with a test on a hand-built
+two-connection group.
 
 - [ ] **Step 1** — writer test against a fake binding recording the calls it received, in order.
 - [ ] **Step 2** — R4 architecture test: `git grep "trafficlight.set" src/` names exactly one
@@ -161,6 +165,12 @@ in for one so the executor can be exercised end to end without the phase-2 contr
       holds stage 2 to 60 s; and the `none` run still satisfies `test_extract.py:54`.
 - [ ] **Step 4** — reconciliation raises on a `type="actuated"` scratch program, before the
       first tick.
+- [ ] **Step 4b** — *the zero-margin race* (gate 1, chunk C): at the step a transition phase's
+      own timer expires, the executor issues `SetPhase(next)` and SUMO would advance by itself;
+      measure who wins under libsumo and traci over every transition of a 600 s run (the
+      `_reconcile` band of one step is exactly wide enough to hide the executor lagging SUMO by
+      one step). Record the answer as a `SIM-D`; if SUMO wins, the executor must issue the
+      command one step early or hold transition phases too.
 - [ ] **Step 5** — Task 1's golden test, both bindings, unchanged.
 - [ ] **Step 6** — `make check`, commit.
 

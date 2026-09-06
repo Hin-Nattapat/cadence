@@ -6,8 +6,9 @@ from conftest import BINDING_MODULE, METRICS_ROOT, SRC_ROOT
 BANNED_IN_ZONE_A = {"traci", "libsumo", "studies"}
 
 # ARCH §13: SUMO's traffic-light lamp alphabet. A raw lamp string ("GGrrG") is a literal
-# built purely from these characters. The signal safety layer (`control/`, arriving at M2)
-# is the one place allowed to hold them; nothing in Zone A does yet, so this must find none.
+# built purely from these characters. SIG-D01 leaves no module any reason to hold one -- the
+# executor changes a signal by selecting a program phase index -- so the scan covers every
+# file in Zone A, `control/` included, with no exemption.
 LAMP_STATE_CHARS = frozenset("rygGsuoO")
 SIGNAL_SAFETY_LAYER = SRC_ROOT / "control"
 
@@ -46,15 +47,13 @@ def _raw_lamp_string_literals(path: Path) -> list[str]:
     ]
 
 
-def test_no_raw_lamp_strings_outside_the_signal_safety_layer():
+def test_no_raw_lamp_strings_anywhere_in_zone_a():
     offenders = []
     for path in sorted(SRC_ROOT.rglob("*.py")):
-        if SIGNAL_SAFETY_LAYER in path.parents:
-            continue
         literals = _raw_lamp_string_literals(path)
         if literals:
             offenders.append(f"{path.relative_to(SRC_ROOT)}: {literals}")
-    assert not offenders, "ARCH §13 violated: " + "; ".join(offenders)
+    assert not offenders, "ARCH §13 / SIG-D01 violated: " + "; ".join(offenders)
 
 
 def test_lamp_string_detector_catches_a_deliberate_violation(tmp_path):
@@ -253,8 +252,20 @@ def test_the_metrics_package_imports_nothing_from_the_sumo_binding_layer():
     assert not offenders, "ST-D30 violated: " + "; ".join(offenders)
 
 
+def test_the_control_package_imports_nothing_from_the_sumo_binding_layer():
+    # SIG-D04, map R3: the safety layer is a pure state machine over canonical domain state.
+    # It emits commands as data; exactly one module under simulation/sumo applies them.
+    offenders = [
+        str(path.relative_to(SRC_ROOT))
+        for path in _scanned_py_files(SIGNAL_SAFETY_LAYER)
+        if _imports_the_sumo_binding_package(path)
+    ]
+    assert not offenders, "SIG-D04 violated: " + "; ".join(offenders)
+
+
 def test_the_sumo_binding_import_detector_catches_a_deliberate_violation(tmp_path):
-    # GOTCHA: a boundary test that cannot fail is worthless. This proves the detector works.
+    # GOTCHA: a boundary test that cannot fail is worthless. This proves the detector both
+    # fences above rely on works.
     offender = tmp_path / "offender.py"
     offender.write_text("from cadence.simulation.sumo.connection import SumoConnection\n")
     assert _imports_the_sumo_binding_package(offender)
