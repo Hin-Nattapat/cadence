@@ -2,8 +2,10 @@ import json
 
 import polars as pl
 import pytest
+from typer.testing import CliRunner
 
-from cadence.cli import DIRTY_TREE_WARNING, _warn_if_dirty, run_scenario
+from cadence.cli import DIRTY_TREE_WARNING, _warn_if_dirty, app, run_scenario
+from cadence.metrics.writer import METRICS_DIR
 from cadence.simulation.artifacts import (
     EVALUATION_DIR,
     GROUND_TRUTH_DIR,
@@ -260,3 +262,22 @@ def test_the_cross_tab_attributes_vehicles_within_their_approach(tmp_path, repo_
 
     residual_lanes = {lane_id for lane_id, edge, _count in rows if edge is None}
     assert len(residual_lanes) == 16, "every lane carries a residual row, zero or not"
+
+
+@pytest.mark.sumo
+@pytest.mark.parametrize("run_dir_fixture", ["turning_run_dir", "oversaturated_run_dir"])
+def test_the_metrics_command_scores_a_run_directory_in_place(request, run_dir_fixture):
+    run_dir = request.getfixturevalue(run_dir_fixture)
+
+    result = CliRunner().invoke(app, ["metrics", str(run_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert f"Metrics written to {run_dir / 'metrics'}" in result.output
+    run_frame = pl.read_parquet(run_dir / METRICS_DIR / "run.parquet")
+    lane_frame = pl.read_parquet(run_dir / METRICS_DIR / "lane.parquet")
+    definitions = json.loads((run_dir / METRICS_DIR / "definitions.json").read_text())
+    # The command's product is the three files agreeing with each other, not its exit code:
+    # a writer that produced two of them would exit 0 just the same.
+    assert run_frame.height == 1
+    assert lane_frame.height == pl.read_parquet(run_dir / TOPOLOGY_DIR / "lane.parquet").height
+    assert set(run_frame.columns) | (set(lane_frame.columns) - {"lane_id"}) == set(definitions)

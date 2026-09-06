@@ -8,6 +8,8 @@ from pathlib import Path
 
 import typer
 
+from cadence.metrics.loader import RunDirectory
+from cadence.metrics.writer import write_metrics
 from cadence.simulation.artifacts import RunRecorder
 from cadence.simulation.events import EventLog
 from cadence.simulation.manifest import RunManifest, TerminationReason, build_manifest
@@ -139,6 +141,14 @@ def validate_scenario(
     typer.echo(f"{config.scenario_id} v{config.scenario_version}: OK")
     typer.echo(f"  network: {paths.network}")
     typer.echo(f"  demand:  {paths.demand}")
+
+
+@app.command("metrics")
+def metrics(
+    run_dir: Path = typer.Argument(..., help="Path to a completed run directory."),
+) -> None:
+    metrics_dir = write_metrics(RunDirectory(run_dir))
+    typer.echo(f"Metrics written to {metrics_dir}")
 
 
 if __name__ == "__main__":
