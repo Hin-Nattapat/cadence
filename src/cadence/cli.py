@@ -12,7 +12,12 @@ from cadence.metrics.loader import RunDirectory
 from cadence.metrics.writer import write_metrics
 from cadence.simulation.artifacts import RunRecorder
 from cadence.simulation.events import EventLog
-from cadence.simulation.manifest import RunManifest, TerminationReason, build_manifest
+from cadence.simulation.manifest import (
+    RunManifest,
+    TerminationReason,
+    build_manifest,
+    compare_manifests,
+)
 from cadence.simulation.scenario import load_scenario
 from cadence.simulation.sumo.binding import BindingKind
 from cadence.simulation.sumo.connection import SumoConnection
@@ -25,6 +30,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # with no control logic applied, versioned like any other controller identity (`AP-06`).
 NO_CONTROLLER_ID = "none"
 NO_CONTROLLER_VERSION = "v1"
+
+# A manifest can carry cadence_dirty without a digest (an older writer, a hand-edited
+# manifest); the refusal still has to name what it saw rather than print an empty field.
+NO_DIGEST = "not recorded"
 
 DIRTY_TREE_WARNING = (
     "WARNING: this run was made from a dirty working tree, so cadence_commit does not\n"
@@ -111,9 +120,12 @@ def _warn_if_dirty(run_dir: Path) -> None:
     # R-15: the warning, not the fail/warn/hash-the-diff decision, which is deferred to M1.
     # It only helps if it reaches the person running the simulation, at the moment they can
     # still act — so stderr, right after the run, not buried in the manifest alone.
-    manifest = RunManifest(**json.loads((run_dir / "manifest.json").read_text()))
-    if manifest.cadence_dirty:
+    if _read_manifest(run_dir).cadence_dirty:
         typer.echo(DIRTY_TREE_WARNING, err=True)
+
+
+def _read_manifest(run_dir: Path) -> RunManifest:
+    return RunManifest(**json.loads((run_dir / "manifest.json").read_text()))
 
 
 @app.command()
@@ -145,10 +157,49 @@ def validate_scenario(
 
 @app.command("metrics")
 def metrics(
-    run_dir: Path = typer.Argument(..., help="Path to a completed run directory."),
+    run_dir: Path = typer.Argument(
+        ..., exists=True, file_okay=False, help="Path to a completed run directory."
+    ),
 ) -> None:
+    """Score a run directory in place, writing its metrics/ partition (ST-D24)."""
     metrics_dir = write_metrics(RunDirectory(run_dir))
     typer.echo(f"Metrics written to {metrics_dir}")
+
+
+@app.command("verify-run")
+def verify_run(
+    left: Path = typer.Argument(
+        ..., exists=True, file_okay=False, help="A completed run directory."
+    ),
+    right: Path = typer.Argument(
+        ..., exists=True, file_okay=False, help="The run directory to compare it with."
+    ),
+) -> None:
+    """Say whether two runs may share a table (ST-D33), and refuse if either is dirty."""
+    left_manifest = _read_manifest(left)
+    right_manifest = _read_manifest(right)
+    comparison = compare_manifests(left_manifest, right_manifest)
+    if not comparison.comparable:
+        for run_dir, manifest, dirty in (
+            (left, left_manifest, comparison.left_dirty),
+            (right, right_manifest, comparison.right_dirty),
+        ):
+            if dirty:
+                # The digest, not just the fact: ST-D11 exists because a boolean cannot tell
+                # two runs made from two different uncommitted trees apart, and a refusal
+                # that prints neither is the same message for both of them.
+                typer.echo(
+                    f"REFUSED  {run_dir}: made from a dirty working tree "
+                    f"(cadence_dirty_digest {manifest.cadence_dirty_digest or NO_DIGEST}), "
+                    "so cadence_commit does not identify the code that produced it "
+                    "(ST-D11, M1a spec §9.2)"
+                )
+        for field, (left_value, right_value) in comparison.mismatched_comparability_fields.items():
+            typer.echo(f"MISMATCH {field}: {left_value} != {right_value}")
+        raise typer.Exit(code=1)
+    typer.echo(f"{comparison.kind}: {left} vs {right}")
+    for field, (left_value, right_value) in comparison.intended_differences.items():
+        typer.echo(f"  {field}: {left_value} vs {right_value}")
 
 
 if __name__ == "__main__":
