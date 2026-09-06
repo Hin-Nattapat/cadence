@@ -2,8 +2,15 @@ import json
 
 import polars as pl
 import pytest
+from typer.testing import CliRunner
 
-from cadence.cli import DIRTY_TREE_WARNING, _warn_if_dirty, run_scenario
+from cadence.cli import DIRTY_TREE_WARNING, _warn_if_dirty, app, run_scenario
+from cadence.metrics.writer import (
+    DEFINITIONS_FILE_NAME,
+    LANE_TABLE_FILE_NAME,
+    METRICS_DIR,
+    RUN_TABLE_FILE_NAME,
+)
 from cadence.simulation.artifacts import (
     EVALUATION_DIR,
     GROUND_TRUTH_DIR,
@@ -51,16 +58,15 @@ MANIFEST_FIELDS = {
 }
 
 
-def _write_manifest(tmp_path, *, dirty: bool):
-    run_dir = tmp_path / "run"
+def _write_run_manifest(root, name: str, **overrides: object):
+    run_dir = root / name
     run_dir.mkdir()
-    fields = {**MANIFEST_FIELDS, "cadence_dirty": dirty}
-    (run_dir / "manifest.json").write_text(json.dumps(fields))
+    (run_dir / "manifest.json").write_text(json.dumps({**MANIFEST_FIELDS, **overrides}))
     return run_dir
 
 
 def test_warns_on_stderr_when_the_working_tree_is_dirty(tmp_path, capsys):
-    run_dir = _write_manifest(tmp_path, dirty=True)
+    run_dir = _write_run_manifest(tmp_path, "run", cadence_dirty=True)
     _warn_if_dirty(run_dir)
     captured = capsys.readouterr()
     assert DIRTY_TREE_WARNING in captured.err
@@ -68,7 +74,7 @@ def test_warns_on_stderr_when_the_working_tree_is_dirty(tmp_path, capsys):
 
 
 def test_does_not_warn_when_the_working_tree_is_clean(tmp_path, capsys):
-    run_dir = _write_manifest(tmp_path, dirty=False)
+    run_dir = _write_run_manifest(tmp_path, "run")
     _warn_if_dirty(run_dir)
     captured = capsys.readouterr()
     assert captured.err == ""
@@ -260,3 +266,95 @@ def test_the_cross_tab_attributes_vehicles_within_their_approach(tmp_path, repo_
 
     residual_lanes = {lane_id for lane_id, edge, _count in rows if edge is None}
     assert len(residual_lanes) == 16, "every lane carries a residual row, zero or not"
+
+
+@pytest.mark.sumo
+@pytest.mark.parametrize("run_dir_fixture", ["turning_run_dir", "oversaturated_run_dir"])
+def test_the_metrics_command_scores_a_run_directory_in_place(request, run_dir_fixture):
+    run_dir = request.getfixturevalue(run_dir_fixture)
+
+    result = CliRunner().invoke(app, ["metrics", str(run_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert f"Metrics written to {run_dir / 'metrics'}" in result.output
+    run_frame = pl.read_parquet(run_dir / METRICS_DIR / RUN_TABLE_FILE_NAME)
+    lane_frame = pl.read_parquet(run_dir / METRICS_DIR / LANE_TABLE_FILE_NAME)
+    definitions = json.loads((run_dir / METRICS_DIR / DEFINITIONS_FILE_NAME).read_text())
+    # The command's product is the three files agreeing with each other, not its exit code:
+    # a writer that produced two of them would exit 0 just the same.
+    assert run_frame.height == 1
+    assert lane_frame.height == pl.read_parquet(run_dir / TOPOLOGY_DIR / "lane.parquet").height
+    assert set(run_frame.columns) | (set(lane_frame.columns) - {"lane_id"}) == set(definitions)
+
+
+def test_verify_run_accepts_a_controller_comparison_and_names_the_intended_differences(tmp_path):
+    left = _write_run_manifest(tmp_path, "fixed_time")
+    right = _write_run_manifest(tmp_path, "actuated", controller_id="actuated", seed=7)
+
+    result = CliRunner().invoke(app, ["verify-run", str(left), str(right)])
+
+    assert result.exit_code == 0, result.output
+    assert "controller-comparison" in result.output
+    assert "controller_id: none vs actuated" in result.output
+    assert "seed: 1 vs 7" in result.output
+
+
+def test_verify_run_calls_two_identical_runs_a_reproducibility_check(tmp_path):
+    left = _write_run_manifest(tmp_path, "one")
+    right = _write_run_manifest(tmp_path, "two")
+
+    result = CliRunner().invoke(app, ["verify-run", str(left), str(right)])
+
+    assert result.exit_code == 0, result.output
+    assert "reproducibility" in result.output
+
+
+def test_verify_run_refuses_a_comparability_mismatch_and_names_the_field(tmp_path):
+    left = _write_run_manifest(tmp_path, "one")
+    right = _write_run_manifest(tmp_path, "two", demand_sha256="d" * 64)
+
+    result = CliRunner().invoke(app, ["verify-run", str(left), str(right)])
+
+    assert result.exit_code == 1
+    assert "MISMATCH demand_sha256" in result.output
+
+
+def test_verify_run_refuses_a_dirty_run_outright_and_prints_the_digest(tmp_path):
+    # ST-D11 (M1a spec §9.2): the digest detects; verify-run refuses and says which run.
+    # Printing the digest is the rest of it -- without it two dirty runs from two different
+    # uncommitted trees produce byte-identical refusals, which is what the digest exists
+    # to prevent.
+    left = _write_run_manifest(tmp_path, "clean")
+    right = _write_run_manifest(
+        tmp_path, "dirty", cadence_dirty=True, cadence_dirty_digest="e" * 64
+    )
+
+    result = CliRunner().invoke(app, ["verify-run", str(left), str(right)])
+
+    assert result.exit_code == 1
+    assert f"REFUSED  {right}" in result.output
+    assert "dirty working tree" in result.output
+    assert "e" * 64 in result.output
+
+
+def test_verify_run_reports_a_seed_replicate_as_its_own_kind(tmp_path):
+    # Spec §7: two seeds of one controller, the first thing anyone runs after M2.
+    left = _write_run_manifest(tmp_path, "seed_one")
+    right = _write_run_manifest(tmp_path, "seed_seven", seed=7)
+
+    result = CliRunner().invoke(app, ["verify-run", str(left), str(right)])
+
+    assert result.exit_code == 0, result.output
+    assert "seed-replicate" in result.output
+    assert "seed: 1 vs 7" in result.output
+
+
+def test_verify_run_on_a_path_that_does_not_exist_exits_two(tmp_path):
+    # A mistyped path exited 1 with a traceback -- the same code as "not comparable", which
+    # is a finding about the runs rather than about the command line.
+    left = _write_run_manifest(tmp_path, "one")
+
+    result = CliRunner().invoke(app, ["verify-run", str(left), str(tmp_path / "absent")])
+
+    assert result.exit_code == 2, result.output
+    assert "absent" in result.output

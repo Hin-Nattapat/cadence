@@ -16,6 +16,31 @@ from conftest import METRICS_ROOT
 # of the same-set comparison below.
 _MECHANISM_FILES = {"registry.py", "__init__.py"}
 
+# Every metric M1b's Tasks 7-8 emit: seven trip, three queue, five network, four teleport.
+_M1B_METRIC_NAMES = frozenset(
+    {
+        "travel_time_mean_completed_s_v1",
+        "waiting_time_mean_completed_s_v1",
+        "time_loss_mean_completed_s_v1",
+        "depart_delay_mean_completed_s_v1",
+        "time_in_network_at_horizon_mean_unfinished_s_v1",
+        "waiting_time_mean_unfinished_s_v1",
+        "time_loss_mean_unfinished_s_v1",
+        "queue_length_peak_m_v1",
+        "waiting_total_peak_s_v1",
+        "halting_delay_total_veh_s_v1",
+        "throughput_vehph_v1",
+        "completion_rate_departed_ratio_v1",
+        "completion_rate_due_ratio_v1",
+        "still_in_network_at_horizon_veh_v1",
+        "pending_insertion_at_horizon_veh_v1",
+        "teleport_incidence_count_v1",
+        "teleport_affected_veh_v1",
+        "completion_rate_teleported_ratio_v1",
+        "completion_rate_unaffected_ratio_v1",
+    }
+)
+
 # A metric-registering module planted only under a monkeypatched package __path__, never
 # imported by this test file itself -- see test_registered_metrics_discovers_a_module_this_
 # test_never_imports below.
@@ -67,6 +92,23 @@ def _definition(**overrides: object) -> MetricDefinition:
     return MetricDefinition(**_definition_kwargs(**overrides))
 
 
+@pytest.fixture
+def isolated_registry(monkeypatch) -> None:
+    # Both tables, always together: a scratch metric registered against a fresh _DEFINITIONS
+    # but the real _COMPUTATIONS would leak a computation with no declaration into every
+    # later test in the session, and the same-set check would fail on collection order.
+    # GOTCHA: the package walk must run against the real tables before they are swapped.
+    # A module imported for the first time while the scratch tables are in place registers
+    # into them, stays in sys.modules, and is never registered again -- so when this file
+    # runs before any test that imported the metric modules, every later walk is a no-op
+    # and registered_metrics() comes back empty. A fixture rather than a function the body
+    # calls: as a call it runs after whatever the body monkeypatched first, which is the
+    # order dependence it exists to remove.
+    registry._import_every_metric_module()
+    monkeypatch.setattr(registry, "_DEFINITIONS", {})
+    monkeypatch.setattr(registry, "_COMPUTATIONS", {})
+
+
 def test_metric_definition_is_frozen():
     definition = _definition()
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -116,8 +158,7 @@ def test_every_population_is_accounted_for_by_the_unnamed_bucket_exemption():
     }
 
 
-def test_register_adds_a_definition_beside_its_function(monkeypatch):
-    monkeypatch.setattr(registry, "_DEFINITIONS", {})
+def test_register_adds_a_definition_beside_its_function(isolated_registry):
     definition = _definition(name="scratch_metric_v1")
 
     @registry.register(definition)
@@ -128,19 +169,19 @@ def test_register_adds_a_definition_beside_its_function(monkeypatch):
     assert compute_scratch_metric_v1() == 42
 
 
-def test_register_refuses_a_second_definition_under_the_same_name(monkeypatch):
-    monkeypatch.setattr(registry, "_DEFINITIONS", {})
+def test_register_refuses_a_second_definition_under_the_same_name(isolated_registry):
     registry.register(_definition(name="scratch_metric_v1"))(lambda: None)
     with pytest.raises(ValueError, match="already registered"):
         registry.register(_definition(name="scratch_metric_v1"))(lambda: None)
 
 
-def test_registered_metrics_discovers_a_module_this_test_never_imports(monkeypatch, tmp_path):
+def test_registered_metrics_discovers_a_module_this_test_never_imports(
+    isolated_registry, monkeypatch, tmp_path
+):
     # Item 1: the same-set check must not depend on which cadence.metrics submodules the
     # pytest session happened to import already. Plant a metric-registering module where only
     # registry.py's own pkgutil walk -- not this test, and nothing else in the suite -- can
     # reach it, and show registered_metrics() finds it anyway.
-    monkeypatch.setattr(registry, "_DEFINITIONS", {})
     (tmp_path / "planted_metric.py").write_text(_PLANTED_METRIC_MODULE)
     monkeypatch.setattr(metrics_package, "__path__", [*metrics_package.__path__, str(tmp_path)])
     monkeypatch.delitem(sys.modules, "cadence.metrics.planted_metric", raising=False)
@@ -192,9 +233,11 @@ def test_declared_and_emitted_metrics_are_the_same_set_in_both_directions():
     )
 
 
-def test_no_metric_is_declared_yet():
-    # Documents the state this task leaves the package in, per its own brief.
-    assert registry.registered_metrics() == {}
+def test_the_package_declares_exactly_the_metrics_m1b_emits():
+    # A containment check on two names is a rolling snapshot: it stays green while a metric
+    # is quietly dropped or a nineteenth appears unreviewed. The set is the assertion, so
+    # adding or removing a metric is a deliberate edit here (CLAUDE.md §7, spec §6.2).
+    assert set(registry.registered_metrics()) == _M1B_METRIC_NAMES
 
 
 def test_emitted_detector_finds_a_compute_function(tmp_path):
@@ -209,3 +252,47 @@ def test_emitted_detector_ignores_the_mechanism_files(tmp_path):
     (tmp_path / "registry.py").write_text("def compute_should_be_ignored():\n    pass\n")
     (tmp_path / "__init__.py").write_text("def compute_also_ignored():\n    pass\n")
     assert _emitted_metric_names(tmp_path) == set()
+
+
+def test_register_stores_the_computation_beside_the_definition(isolated_registry):
+    definition = _definition(name="scratch_metric_v1")
+
+    @registry.register(definition)
+    def compute_scratch_metric_v1():
+        return 42
+
+    assert registry.registered_computations()["scratch_metric_v1"] is compute_scratch_metric_v1
+
+
+def test_registered_computations_walks_the_package_like_registered_metrics(
+    isolated_registry, monkeypatch, tmp_path
+):
+    # The declaration side already proves the walk (see the planted-module test above); this
+    # proves the computation side triggers the same one rather than trusting prior imports.
+    (tmp_path / "planted_metric.py").write_text(_PLANTED_METRIC_MODULE)
+    monkeypatch.setattr(metrics_package, "__path__", [*metrics_package.__path__, str(tmp_path)])
+    monkeypatch.delitem(sys.modules, "cadence.metrics.planted_metric", raising=False)
+    importlib.invalidate_caches()
+
+    assert "planted_metric_v1" not in registry._COMPUTATIONS
+
+    assert registry.registered_computations()["planted_metric_v1"]() == 1
+
+    monkeypatch.delitem(sys.modules, "cadence.metrics.planted_metric", raising=False)
+
+
+def test_every_registered_metric_has_a_computation_and_the_reverse():
+    # Task 9's writer iterates the declarations and calls the computation of each; a name on
+    # one side only is a column it would either fail on or silently never write.
+    assert set(registry.registered_computations()) == set(registry.registered_metrics())
+
+
+@pytest.mark.parametrize(
+    "accessor", [registry.registered_metrics, registry.registered_computations]
+)
+def test_both_accessors_are_snapshots_in_sorted_name_order(accessor):
+    # The writer's column order is this order, so the output must not depend on which module
+    # the package walk happened to import first. A live view of the underlying table gives
+    # insertion order, which is exactly that dependence.
+    names = list(accessor())
+    assert names == sorted(names)

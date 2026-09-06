@@ -6,9 +6,15 @@ import pytest
 from pydantic import ValidationError
 
 from cadence.simulation.manifest import (
+    COMPARABILITY_FIELDS,
+    DIRTINESS_FIELDS,
+    INTENDED_DIFFERENCE_FIELDS,
     NON_REPRODUCIBLE_FIELDS,
+    OUTCOME_FIELDS,
+    ComparisonKind,
     RunManifest,
     TerminationReason,
+    compare_manifests,
     git_commit,
     working_tree_digest,
 )
@@ -171,3 +177,130 @@ def test_two_untracked_files_in_one_directory_are_told_apart(tmp_path):
 
     assert first is not None and second is not None
     assert first != second
+
+
+# --- ST-D33: comparability is a different question from reproducibility -----------------
+
+
+def test_the_five_field_sets_partition_the_manifest_exactly():
+    # A field added later must land in exactly one set, or this fails until someone
+    # classifies it as input, intended difference, outcome, dirtiness or noise.
+    sets = (
+        COMPARABILITY_FIELDS,
+        INTENDED_DIFFERENCE_FIELDS,
+        OUTCOME_FIELDS,
+        DIRTINESS_FIELDS,
+        NON_REPRODUCIBLE_FIELDS,
+    )
+    assert frozenset().union(*sets) == set(RunManifest.model_fields)
+    assert sum(len(fields) for fields in sets) == len(RunManifest.model_fields)
+
+
+def test_two_identical_runs_are_a_reproducibility_check(manifest_fixture):
+    comparison = compare_manifests(manifest_fixture, manifest_fixture)
+    assert comparison.comparable
+    assert comparison.kind is ComparisonKind.REPRODUCIBILITY
+    assert comparison.intended_differences == {}
+
+
+def test_two_runs_differing_only_in_controller_identity_are_comparable(manifest_fixture):
+    # The defect the plan's first draft would have shipped: reusing reproducible_fields()
+    # refuses exactly this, M3's fixed-time-versus-actuated comparison.
+    other = manifest_fixture.model_copy(
+        update={"controller_id": "actuated", "controller_version": "v2"}
+    )
+    comparison = compare_manifests(manifest_fixture, other)
+    assert comparison.comparable
+    assert comparison.kind is ComparisonKind.CONTROLLER_COMPARISON
+    assert comparison.intended_differences == {
+        "controller_id": ("none", "actuated"),
+        "controller_version": ("v1", "v2"),
+    }
+    assert comparison.mismatched_comparability_fields == {}
+
+
+def test_two_runs_differing_only_in_seed_are_a_seed_replicate(manifest_fixture):
+    # Spec §7: two seeds of one controller is a replicate of that controller, not a
+    # comparison between two of them -- the first thing anyone runs after M2, and the
+    # headline word is what a reader takes the pair to be.
+    other = manifest_fixture.model_copy(update={"seed": 7})
+    comparison = compare_manifests(manifest_fixture, other)
+    assert comparison.comparable
+    assert comparison.kind is ComparisonKind.SEED_REPLICATE
+    assert comparison.intended_differences == {"seed": (1, 7)}
+
+
+def test_a_run_outcome_never_decides_comparability(manifest_fixture):
+    other = manifest_fixture.model_copy(
+        update={
+            "terminal_time_s": 600.0,
+            "step_count": 600,
+            "unmatched_traversal_count": 3,
+            "termination_reason": TerminationReason.HORIZON,
+            "started_at_utc": "2026-08-24T00:00:00+00:00",
+            "finished_at_utc": "2026-08-24T00:00:10+00:00",
+        }
+    )
+    assert compare_manifests(manifest_fixture, other).comparable
+
+
+def _a_different_value(value: object) -> object:
+    # Every comparability and intended-difference field is a str, an int or a float, and
+    # which different value it takes never matters -- only that it differs.
+    if isinstance(value, str):
+        return value + "_changed"
+    if isinstance(value, int):
+        return value + 1
+    if isinstance(value, float):
+        return value + 1.0
+    raise AssertionError(f"no rule for changing a {type(value).__name__}")
+
+
+@pytest.mark.parametrize("field", sorted(COMPARABILITY_FIELDS))
+def test_every_comparability_field_alone_refuses_the_comparison(manifest_fixture, field):
+    # The partition test catches a field belonging to no set or to two. It does not catch a
+    # field *moved*: with time_to_teleport_s in OUTCOME_FIELDS instead, two runs whose
+    # teleport threshold differs by 10x stay comparable and every other test stays green.
+    # Each field is tied to the refusal here, one at a time, or none of them is.
+    original = getattr(manifest_fixture, field)
+    changed = _a_different_value(original)
+    other = manifest_fixture.model_copy(update={field: changed})
+
+    comparison = compare_manifests(manifest_fixture, other)
+
+    assert not comparison.comparable
+    assert comparison.mismatched_comparability_fields == {field: (original, changed)}
+
+
+@pytest.mark.parametrize("field", sorted(INTENDED_DIFFERENCE_FIELDS))
+def test_every_intended_difference_field_alone_is_accepted_and_reported(manifest_fixture, field):
+    original = getattr(manifest_fixture, field)
+    changed = _a_different_value(original)
+    other = manifest_fixture.model_copy(update={field: changed})
+
+    comparison = compare_manifests(manifest_fixture, other)
+
+    assert comparison.comparable
+    assert comparison.intended_differences == {field: (original, changed)}
+    assert comparison.mismatched_comparability_fields == {}
+
+
+def test_the_dirty_flag_without_a_digest_still_refuses(manifest_fixture):
+    # The two dirtiness fields are one signal. This manifest is where reading the boolean
+    # says "refuse" and reading the digest says "compare", so both have to be read.
+    flagged = manifest_fixture.model_copy(update={"cadence_dirty": True})
+    comparison = compare_manifests(manifest_fixture, flagged)
+    assert flagged.cadence_dirty_digest is None
+    assert not comparison.comparable
+    assert (comparison.left_dirty, comparison.right_dirty) == (False, True)
+
+
+def test_a_dirty_run_is_refused_even_when_every_field_agrees(manifest_fixture):
+    # M1a spec §9.2 / ST-D11: the digest is the detection; this is the refusal.
+    dirty = manifest_fixture.model_copy(
+        update={"cadence_dirty": True, "cadence_dirty_digest": "e" * 64}
+    )
+    comparison = compare_manifests(manifest_fixture, dirty)
+    assert not comparison.comparable
+    assert (comparison.left_dirty, comparison.right_dirty) == (False, True)
+    assert comparison.mismatched_comparability_fields == {}

@@ -8,6 +8,9 @@ lines cannot exist independently of each other.
 
 The privileged partition of the run directory is off limits to every module in this
 package, enforced by an architecture test elsewhere.
+
+The output shape every run-level metric returns is `scalar_frame`, declared here beside the
+contract it belongs to rather than copied into each module that emits one.
 """
 
 from __future__ import annotations
@@ -20,7 +23,12 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import TypeVar
 
-F = TypeVar("F", bound=Callable[..., object])
+import polars as pl
+
+from cadence.metrics.loader import RunDirectory
+
+MetricComputation = Callable[[RunDirectory], pl.DataFrame]
+F = TypeVar("F", bound=MetricComputation)
 # `registry` is this module itself -- importing it again through the walk below is a no-op
 # at best, and the one module in the package that cannot be scanned for its own side effects.
 _MECHANISM_MODULE_NAMES = frozenset({"registry"})
@@ -91,11 +99,22 @@ class MetricDefinition:
             )
 
 
+def scalar_frame(name: str, value: float | None) -> pl.DataFrame:
+    """The one-row frame a run-level metric returns, with `value` in a column named `name`.
+
+    CONTRACT: `value` is None exactly when the metric's population is empty -- an empty
+    denominator is "no data", never 0.0 and never a raise, so a run where the population
+    happens to be empty still produces a row a reader can tell apart from a real zero.
+    """
+    return pl.DataFrame({name: [value]}, schema={name: pl.Float64})
+
+
 _DEFINITIONS: dict[str, MetricDefinition] = {}
+_COMPUTATIONS: dict[str, MetricComputation] = {}
 
 
 def register(definition: MetricDefinition) -> Callable[[F], F]:
-    """Declare `definition` beside the function that computes it.
+    """Declare `definition` beside the function that computes it, and keep both.
 
     Raises ValueError if `definition.name` is already registered: a metric definition is
     immutable (CLAUDE.md §4) and a changed interpretation gets a new name ending `_v2`,
@@ -106,6 +125,7 @@ def register(definition: MetricDefinition) -> Callable[[F], F]:
         if definition.name in _DEFINITIONS:
             raise ValueError(f"metric {definition.name!r} is already registered")
         _DEFINITIONS[definition.name] = definition
+        _COMPUTATIONS[definition.name] = func
         return func
 
     return decorator
@@ -126,10 +146,23 @@ def _import_every_metric_module() -> None:
 
 
 def registered_metrics() -> Mapping[str, MetricDefinition]:
-    """Every metric declared anywhere in `cadence.metrics`, keyed by name.
+    """Every metric declared anywhere in `cadence.metrics`, keyed by name, in sorted order.
 
     CONTRACT: imports every module in the package first (see `_import_every_metric_module`),
-    so the result does not depend on what the caller already imported.
+    so the result does not depend on what the caller already imported; and the result is a
+    snapshot in name order, like `registered_computations`, rather than a live view whose
+    order is whichever module the walk reached first.
     """
     _import_every_metric_module()
-    return MappingProxyType(_DEFINITIONS)
+    return MappingProxyType(dict(sorted(_DEFINITIONS.items())))
+
+
+def registered_computations() -> Mapping[str, MetricComputation]:
+    """Every metric's computing function, keyed by name, in sorted name order.
+
+    CONTRACT: the same package walk `registered_metrics` performs, so the result is the
+    whole package rather than whatever the caller had already imported, and the order a
+    writer emits columns in is the name order rather than the import order.
+    """
+    _import_every_metric_module()
+    return MappingProxyType(dict(sorted(_COMPUTATIONS.items())))

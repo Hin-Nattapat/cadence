@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -72,3 +73,44 @@ def turning_run_dir(repo_root, tmp_path_factory):
 @pytest.fixture(scope="session")
 def oversaturated_run_dir(repo_root, tmp_path_factory):
     return _run_scenario_fixture(repo_root, tmp_path_factory, "s0_turning_oversaturated")
+
+
+def write_manifest_json(
+    root: Path,
+    *,
+    step_length_s: float = 1.0,
+    terminal_time_s: float = 1.0,
+    begin_s: float = 0.0,
+) -> None:
+    # RunManifest forbids extra fields and requires every one of them (manifest.py), so a
+    # hand-built fixture that only sets the two fields a test cares about must still fill
+    # in the rest with values no test inspects.
+    fields = {
+        "cadence_commit": "0" * 40,
+        "cadence_dirty": False,
+        "cadence_version": "0.0.0",
+        "sumo_version": "1.27.1",
+        "python_version": "3.12.0",
+        "platform_tag": "Darwin-arm64",
+        "binding": "libsumo",
+        "controller_id": "none",
+        "controller_version": "v1",
+        "scenario_id": "scratch",
+        "scenario_version": 1,
+        "network_sha256": "a" * 64,
+        "demand_sha256": "b" * 64,
+        "config_sha256": "c" * 64,
+        "seed": 1,
+        "begin_s": begin_s,
+        "end_s": terminal_time_s,
+        "step_length_s": step_length_s,
+        "time_to_teleport_s": 300.0,
+        "terminal_time_s": terminal_time_s,
+        "step_count": 1,
+        "unmatched_traversal_count": 0,
+        "termination_reason": "horizon",
+        "cadence_dirty_digest": None,
+        "started_at_utc": "2026-08-23T00:00:00+00:00",
+        "finished_at_utc": "2026-08-23T00:00:10+00:00",
+    }
+    (root / "manifest.json").write_text(json.dumps(fields))

@@ -1,5 +1,10 @@
 """cadence.metrics.accounting — the vehicle accounting every population-scoped metric
 selects from (spec §3.1).
+
+CONTRACT: `completed_trips` and `unfinished_trips` are the two tripinfo populations
+ST-D25/ST-D27 name, and this module is the only place their predicate is written. A metric
+that re-derives `arrival >= 0` for itself is a second definition of a population the spec
+defines once.
 """
 
 from __future__ import annotations
@@ -13,6 +18,24 @@ from cadence.metrics.loader import RunDirectory
 # Five broken steps are enough to show a reader the pattern (e.g. "every
 # teleport step") without printing a multi-thousand-float list on an M8 corridor hour.
 _MAX_BROKEN_TIMES_SHOWN = 5
+
+# ST-D29: COMPLETED_TRIPS, UNFINISHED_TRIPS and DEPARTED_VEHICLES all exclude spec §3.3's
+# never-inserted bucket -- it has no tripinfo row, so it cannot enter any of their
+# denominators. Every metric on one of those populations declares this.
+EXCLUDES_NEVER_INSERTED_VEHICLES = (
+    "excludes spec §3.3's never-inserted vehicles: they have no tripinfo row and so cannot "
+    "enter this population's denominator",
+)
+
+
+def completed_trips(run: RunDirectory) -> pl.DataFrame:
+    # spec §3.1: the population filter is arrival >= 0, declared -- not vaporized == "end".
+    # Not every unfinished row carries vaporized="end" (measured on both committed fixtures).
+    return run.evaluation("tripinfo").filter(pl.col("arrival").cast(pl.Float64) >= 0)
+
+
+def unfinished_trips(run: RunDirectory) -> pl.DataFrame:
+    return run.evaluation("tripinfo").filter(pl.col("arrival").cast(pl.Float64) < 0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,12 +106,9 @@ def account(run: RunDirectory) -> VehicleAccounting:
     network = run.state("network").sort("time_s")
     _assert_per_step_identity_holds(run, network)
 
-    # The population filter is arrival >= 0, declared -- not vaporized == "end". Not every
-    # unfinished row carries it, measured on both fixtures (spec §3.1).
-    arrival = run.evaluation("tripinfo")["arrival"].cast(pl.Float64)
-    completed_veh = int((arrival >= 0).sum())
-    unfinished_veh = int((arrival < 0).sum())
-    departed_veh = arrival.len()
+    completed_veh = completed_trips(run).height
+    unfinished_veh = unfinished_trips(run).height
+    departed_veh = run.evaluation("tripinfo").height
 
     horizon = network.row(-1, named=True)
     _assert_horizon_identity_holds(
