@@ -1,0 +1,17 @@
+{
+  "evaluation/tripinfo.parquet": "d672b6d8e5b386122b5f0e33577e33ab3b4480a05eb20c9c8137789fbff5b53e",
+  "events.parquet": "444427c2c7e7ff861e5e067874b9b5fe250bde632705615c3f723961abd974c6",
+  "ground_truth/lane_turn.parquet": "e28b8a1f02874c4624766c9769f292c239694d9b09ec662693186e16c9021576",
+  "ground_truth/lane_turn_vehicle.parquet": "a4941967d9ead5a244a3e37ed5ca01b121e2a2540aca3502c3d9c2b941228c7c",
+  "state/intersection.parquet": "4fc0298da41d83048a5089adc95e68f6f496e8c58482bdd0b3fa73d45ad43643",
+  "state/lane.parquet": "3d9abb9c4a63c6ae55472f9d728cd603e2fa5ae8850f5c8f7e0f274fdf776f3b",
+  "state/movement.parquet": "c55ad1393c98ae565b540eb4dc75564aba6d88e8bd6c336176847b84ffec7765",
+  "state/network.parquet": "18f295901a8f9986fe888c3820c8102a18fb4b4db3bd2baf982abb08f40eb362",
+  "state/signal.parquet": "f9c930fbbef3f58855411428533fbbfade302ab90f71844270d2b9f7e45145db",
+  "state/teleport.parquet": "95f5da8c87b42b798eebf99603899355e09bb4c02d62ac63211d82ffa2f3b45a",
+  "state/traversal.parquet": "84ac13f714806ffd22104db44ab3a52cee3386483899f82a4358e9c0559e8d76",
+  "topology/connection.parquet": "31ea0535b74b1d967ca802bddaa42a49ebd3dfb3d97cdfc8ace2d06324155c9c",
+  "topology/lane.parquet": "761b5c83019ce151d09e4bf009e0205880fe3e6cac46b8fa748e9249108036a5",
+  "topology/tls_program.parquet": "af5b52ccd5b75a2e38807fefdf43f919756970c9a4251e0915e152d476890e41",
+  "topology/vehicle_type.parquet": "70a9359b2719ba0ae8a1bc4618198e600330cd3385903b629cd4cc49a96a22ec"
+}
