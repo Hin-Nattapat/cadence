@@ -13,3 +13,9 @@ __pycache__/
 # CADENCE experiment output. Run-output paths only: a committed golden event stream
 # (e.g. an M1 test fixture) must not vanish just because it happens to be a .parquet file.
 studies/**/runs/
+
+# prompt-corner scratch: review briefs and handoffs are never committed
+.claude/review/
+.claude/handoff*.md
+docs/programs/*.handoff*.md
+docs/programs/*.questions.md
