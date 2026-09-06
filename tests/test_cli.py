@@ -1,4 +1,5 @@
 import json
+import shutil
 
 import polars as pl
 import pytest
@@ -18,6 +19,7 @@ from cadence.simulation.artifacts import (
     TOPOLOGY_DIR,
 )
 from cadence.simulation.manifest import RunManifest
+from cadence.simulation.scenario import SIGNAL_PLAN_FILE_NAME
 from cadence.simulation.state import SignalState
 from cadence.simulation.sumo.binding import BindingKind
 
@@ -43,6 +45,7 @@ MANIFEST_FIELDS = {
     "network_sha256": "a" * 64,
     "demand_sha256": "b" * 64,
     "config_sha256": "c" * 64,
+    "signal_plan_sha256": None,
     "seed": 1,
     "begin_s": 0.0,
     "end_s": 600.0,
@@ -285,6 +288,74 @@ def test_the_metrics_command_scores_a_run_directory_in_place(request, run_dir_fi
     assert run_frame.height == 1
     assert lane_frame.height == pl.read_parquet(run_dir / TOPOLOGY_DIR / "lane.parquet").height
     assert set(run_frame.columns) | (set(lane_frame.columns) - {"lane_id"}) == set(definitions)
+
+
+def _scenario_with_envelope(tmp_path, repo_root, envelope_text: str):
+    # A copy of s0_turning, so the network and demand are real and only the envelope is the
+    # thing under test.
+    root = tmp_path / "scratch" / "v1"
+    shutil.copytree(repo_root / "scenarios/s0_turning/v1", root)
+    (root / SIGNAL_PLAN_FILE_NAME).write_text(envelope_text)
+    return root
+
+
+@pytest.mark.sumo
+def test_validate_scenario_accepts_s0_turning_and_names_its_stages(repo_root):
+    result = CliRunner().invoke(
+        app, ["validate-scenario", "--scenario", str(repo_root / "scenarios/s0_turning/v1")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "s0_turning v1: OK" in result.output
+    # The stage set is the plan's product, not the file's: it is what the envelope and the
+    # network agreed on (spec §5.2).
+    assert "A0: stages [0, 2]" in result.output
+
+
+def test_validate_scenario_fails_when_the_maximum_green_is_below_the_minimum(tmp_path, repo_root):
+    root = _scenario_with_envelope(
+        tmp_path,
+        repo_root,
+        "signal_plan_version: 1\nintersections:\n  A0:\n    stages:\n"
+        "      0: {min_green_s: 60.0, max_green_s: 10.0}\n"
+        "      2: {min_green_s: 10.0, max_green_s: 60.0}\n",
+    )
+
+    result = CliRunner().invoke(app, ["validate-scenario", "--scenario", str(root)])
+
+    assert result.exit_code == 1, result.output
+    assert "FAIL  signal plan:" in result.output
+    assert "max_green_s" in result.output
+
+
+def test_validate_scenario_fails_on_an_empty_envelope_rather_than_raising(tmp_path, repo_root):
+    root = _scenario_with_envelope(tmp_path, repo_root, "")
+
+    result = CliRunner().invoke(app, ["validate-scenario", "--scenario", str(root)])
+
+    assert result.exit_code == 1, result.output
+    assert "FAIL  signal plan:" in result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+
+
+@pytest.mark.sumo
+def test_validate_scenario_fails_when_the_envelope_names_a_transition_phase(tmp_path, repo_root):
+    # Phase 1 of s0's program is the yellow, so it is not a stage and cannot be requested;
+    # only the network's own program can say so, which is why this check opens SUMO.
+    root = _scenario_with_envelope(
+        tmp_path,
+        repo_root,
+        "signal_plan_version: 1\nintersections:\n  A0:\n    stages:\n"
+        "      0: {min_green_s: 10.0, max_green_s: 60.0}\n"
+        "      1: {min_green_s: 10.0, max_green_s: 60.0}\n",
+    )
+
+    result = CliRunner().invoke(app, ["validate-scenario", "--scenario", str(root)])
+
+    assert result.exit_code == 1, result.output
+    assert "FAIL  signal plan:" in result.output
+    assert "[1]" in result.output
+    assert "[2]" in result.output
 
 
 def test_verify_run_accepts_a_controller_comparison_and_names_the_intended_differences(tmp_path):

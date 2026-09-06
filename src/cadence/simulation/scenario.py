@@ -20,6 +20,10 @@ from cadence.types import ScenarioId
 
 _HASH_CHUNK_BYTES = 1 << 20  # 1 MiB; large enough that hashing a network file is one read.
 
+# The optional safety envelope beside scenario.yaml (SIG-D02). Discovered here, parsed by
+# signal_plan_file.py, so a scenario without one still loads and simply is not controllable.
+SIGNAL_PLAN_FILE_NAME = "signal_plan.yaml"
+
 
 class ScenarioConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -47,6 +51,7 @@ class ScenarioPaths:
     root: Path
     network: Path
     demand: Path
+    signal_plan: Path | None = None
 
 
 def sha256_file(path: Path) -> str:
@@ -64,10 +69,12 @@ def config_digest(config: ScenarioConfig) -> str:
 
 def load_scenario(root: Path) -> tuple[ScenarioConfig, ScenarioPaths]:
     config = ScenarioConfig(**yaml.safe_load((root / "scenario.yaml").read_text()))
+    signal_plan = root / SIGNAL_PLAN_FILE_NAME
     paths = ScenarioPaths(
         root=root,
         network=root / config.network_file,
         demand=root / config.demand_file,
+        signal_plan=signal_plan if signal_plan.is_file() else None,
     )
     for path in (paths.network, paths.demand):
         if not path.is_file():

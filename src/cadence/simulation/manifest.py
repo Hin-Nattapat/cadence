@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict
 
 from cadence import __version__ as cadence_version
 from cadence.simulation.scenario import ScenarioConfig, ScenarioPaths, config_digest, sha256_file
+from cadence.simulation.signal_plan_file import signal_plan_digest
 from cadence.simulation.sumo.binding import BindingKind, sumo_version
 
 # Fields that legitimately differ between two identical runs.
@@ -35,6 +36,7 @@ COMPARABILITY_FIELDS = frozenset(
         "network_sha256",
         "demand_sha256",
         "config_sha256",
+        "signal_plan_sha256",
         "begin_s",
         "end_s",
         "step_length_s",
@@ -89,6 +91,8 @@ class RunManifest(BaseModel):
     network_sha256: str
     demand_sha256: str
     config_sha256: str
+    # SIG-D02: None when the scenario declares no envelope and so cannot be controlled.
+    signal_plan_sha256: str | None
     seed: int
     begin_s: float
     end_s: float
@@ -239,6 +243,7 @@ def build_manifest(
         network_sha256=sha256_file(paths.network),
         demand_sha256=sha256_file(paths.demand),
         config_sha256=config_digest(config),
+        signal_plan_sha256=signal_plan_digest(paths.signal_plan),
         seed=seed,
         begin_s=config.begin_s,
         end_s=config.end_s,

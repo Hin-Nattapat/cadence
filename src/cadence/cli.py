@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
+import yaml
+from pydantic import ValidationError
 
+from cadence.control.plan import SignalPlan, build_signal_plans
 from cadence.metrics.loader import RunDirectory
 from cadence.metrics.writer import write_metrics
 from cadence.simulation.artifacts import RunRecorder
@@ -18,10 +22,12 @@ from cadence.simulation.manifest import (
     build_manifest,
     compare_manifests,
 )
-from cadence.simulation.scenario import load_scenario
+from cadence.simulation.scenario import ScenarioConfig, ScenarioPaths, load_scenario
+from cadence.simulation.signal_plan_file import load_signal_plan_file
 from cadence.simulation.sumo.binding import BindingKind
 from cadence.simulation.sumo.connection import SumoConnection
 from cadence.simulation.sumo.validation import validate_network
+from cadence.types import IntersectionId
 
 app = typer.Typer(help="CADENCE traffic control experimentation platform.")
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -140,12 +146,39 @@ def run(
     _warn_if_dirty(run_dir)
 
 
+def _build_plans_for_validation(
+    config: ScenarioConfig, paths: ScenarioPaths, *, against_the_network: bool
+) -> tuple[list[str], Mapping[IntersectionId, SignalPlan]]:
+    if paths.signal_plan is None:
+        return [], {}
+    try:
+        envelope = load_signal_plan_file(paths.signal_plan, step_length_s=config.step_length_s)
+        if not against_the_network:
+            return [], {}
+        # Spec §5.2 puts the plan's structural refusals here too, and they can only be
+        # decided against the program the network carries. The connection is opened for the
+        # topology alone and closed before the plan is built.
+        with SumoConnection(
+            config, paths, seed=config.default_seed, binding=BindingKind.LIBSUMO
+        ) as connection:
+            topology = connection.topology
+        return [], build_signal_plans(topology, envelope)
+    except (ValueError, ValidationError, yaml.YAMLError) as error:
+        return [f"signal plan: {error}"], {}
+
+
 @app.command("validate-scenario")
 def validate_scenario(
     scenario: Path = typer.Option(..., help="Path to a scenario version directory."),
 ) -> None:
     config, paths = load_scenario(scenario)
     problems = validate_network(paths)
+    # A network that already failed is not worth starting SUMO on: the plan build would
+    # fail for reasons the network problems above already explain.
+    signal_plan_problems, plans = _build_plans_for_validation(
+        config, paths, against_the_network=not problems
+    )
+    problems.extend(signal_plan_problems)
     for problem in problems:
         typer.echo(f"FAIL  {problem}")
     if problems:
@@ -153,6 +186,10 @@ def validate_scenario(
     typer.echo(f"{config.scenario_id} v{config.scenario_version}: OK")
     typer.echo(f"  network: {paths.network}")
     typer.echo(f"  demand:  {paths.demand}")
+    envelope = paths.signal_plan if paths.signal_plan is not None else "none (not controllable)"
+    typer.echo(f"  signal plan: {envelope}")
+    for intersection_id, plan in sorted(plans.items()):
+        typer.echo(f"    {intersection_id}: stages {sorted(plan.stages)}")
 
 
 @app.command("metrics")

@@ -36,6 +36,7 @@ FIELDS = {
     "network_sha256",
     "demand_sha256",
     "config_sha256",
+    "signal_plan_sha256",
     "seed",
     "begin_s",
     "end_s",
@@ -96,6 +97,7 @@ def manifest_fixture():
         network_sha256="a" * 64,
         demand_sha256="b" * 64,
         config_sha256="c" * 64,
+        signal_plan_sha256="d" * 64,
         seed=1,
         begin_s=0.0,
         end_s=600.0,
@@ -283,6 +285,20 @@ def test_every_intended_difference_field_alone_is_accepted_and_reported(manifest
     assert comparison.comparable
     assert comparison.intended_differences == {field: (original, changed)}
     assert comparison.mismatched_comparability_fields == {}
+
+
+def test_a_run_with_no_envelope_is_not_comparable_with_one_that_has_one(manifest_fixture):
+    # signal_plan_sha256 is the one comparability field that is Optional, so the sweep above
+    # only ever varies its str arm. "No envelope" and "this envelope" are two experiments
+    # (SIG-D02, ST-D33), and the None arm is where a naive falsy comparison would agree.
+    without = manifest_fixture.model_copy(update={"signal_plan_sha256": None})
+
+    comparison = compare_manifests(manifest_fixture, without)
+
+    assert not comparison.comparable
+    assert comparison.mismatched_comparability_fields == {
+        "signal_plan_sha256": (manifest_fixture.signal_plan_sha256, None)
+    }
 
 
 def test_the_dirty_flag_without_a_digest_still_refuses(manifest_fixture):

@@ -1,0 +1,9 @@
+# The safety envelope every controller on this scenario shares (SIG-D02, spec §4.2).
+# Placeholders for M2: M3 tunes and freezes them (TC-D11). Chosen only to bracket the static
+# program's 42 s stages, the one property the acceptance test of spec §7.3 depends on.
+signal_plan_version: 1
+intersections:
+  A0:
+    stages:
+      0: {min_green_s: 10.0, max_green_s: 60.0}
+      2: {min_green_s: 10.0, max_green_s: 60.0}

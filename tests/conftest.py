@@ -100,6 +100,7 @@ def write_manifest_json(
         "network_sha256": "a" * 64,
         "demand_sha256": "b" * 64,
         "config_sha256": "c" * 64,
+        "signal_plan_sha256": None,
         "seed": 1,
         "begin_s": begin_s,
         "end_s": terminal_time_s,
