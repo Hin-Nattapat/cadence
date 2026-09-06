@@ -1,7 +1,7 @@
 # CADENCE — Current Direction
 
 **Document Type:** Living document. Updated as milestones complete.
-**Last updated:** 2026-08-24
+**Last updated:** 2026-09-06
 
 The reasoning behind everything here is in
 `docs/specs/2026-08-22-project-direction.md`. This file is the operational summary.
@@ -13,9 +13,10 @@ The reasoning behind everything here is in
 ```
 Pre-implementation research        complete
 Project direction and conventions  decided  (PD-D01 .. PD-D07)
-Implementation                     M1a complete, M1b in progress
-Current milestone                  M1 — Canonical State + Metrics
+Implementation                     M1 complete (M1a, M1b); M2 not started
+Current milestone                  M2 — Signal Safety + Controller Contract
 Current plan                       docs/plans/2026-08-27-m1b-metrics.md
+                                   (M1b's, finished; M2's plan opens with its spec)
 ```
 
 ---
@@ -25,9 +26,9 @@ Current plan                       docs/plans/2026-08-27-m1b-metrics.md
 | | Milestone | Delivers | State |
 |---|---|---|---|
 | **M0** | Simulation Harness | deterministic SUMO lifecycle, TraCI/libsumo wrapper, scenario loader, seed wiring, event capture | done |
-| **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | current |
-| **M1b** | Metrics | metric registry, trip / queue / network metrics, vehicle accounting, `queue_length_m`, `cadence metrics`, `cadence verify-run` | in progress |
-| **M2** | Signal Safety + Controller Contract | controller interface, action types, safety and transition executor, action masks, timeout and fallback | |
+| **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | done |
+| **M1b** | Metrics | metric registry, trip / queue / network / teleport metrics, vehicle accounting, `queue_length_m`, `cadence metrics`, `cadence verify-run` | done |
+| **M2** | Signal Safety + Controller Contract | controller interface, action types, safety and transition executor, action masks, timeout and fallback | current |
 | **M3** | Validation Controllers | tuned fixed-time, SUMO native actuated — the acceptance test for M2 | |
 | **M4** | RL Adapter | Gymnasium adapter, observation builder v1, action mapping, reward v1 | |
 | **M5** | PPO (+ DQN reference) | training and evaluation pipelines, checkpointing, multiple seeds | |
@@ -115,12 +116,31 @@ recollection. All four are now taken, at M1a; each row records where.
 ## Carried into M1b
 
 Found by the whole-branch review at the end of M1a, and deliberately not patched there.
-Both are preconditions of M1b's first item, not improvements to schedule after it.
+Both were preconditions of M1b's first item. Both are now taken: the `ST-D31` writer change
+landed as `topology/vehicle_type.parquet`, `Traversal.from_lane_id` and `distinct_veh` on the
+cross-tab, with the reconciliation test; `ST-D23` was answered for code by `ST-D30` — the
+metrics package never reads `ground_truth/`, enforced by an architecture test — while the
+question of the partition itself stays open below.
 
-| # | What M1a leaves | Why it belongs to M1b |
+| # | What M1a left | Why it belonged to M1b |
 |---|---|---|
 | 1 | The cross-tab's per-lane turn split is unverified (`ST-D31`, superseding `ST-D22`) | A permutation confined to the movements one lane serves relabels 74% of the table and changes no assertion in the suite, because `LaneTurnCount` carries no vehicle key. The deadline splits: the **writer** change lands at M1b, because every run written before it is permanently unreconcilable; the **estimator** that consumes it moves to M8 with the rest of the turn-ratio work. |
 | 2 | The privilege split bounds code, not data (`ST-D23`) | `state/traversal.parquet` carries per-vehicle turn identity and `evaluation/tripinfo.parquet` carries `departLane`; together they reconstruct 89% of the privileged cross-tab's vehicle-steps. The import ban and the allowlist test hold; a file read is fenced by nothing. `ST-D18`'s reasoning is about what a controller could see online, and the partition exists to bound an offline loader — the two have to be reconciled before the first loader is written. |
+
+## Carried into M2 and M8
+
+Recorded at the end of M1b, from spec §9.2 and the four review gates. Each row names the
+milestone that first has a reason to take it.
+
+| # | What M1b leaves | Where it goes, and why there |
+|---|---|---|
+| 1 | The never-inserted bucket has a count and no per-vehicle identity (spec §3.3) | Whichever milestone first needs insertion delay as a per-vehicle outcome. Needs a source the run directory does not have. |
+| 2 | Jam spacing, and with it `storage_capacity_veh` and `available_storage_ratio` (spec §5.3) | **M8**, downstream storage; M8 also runs the congested scenarios where an observational estimate has support. |
+| 3 | Turn-ratio estimation and shared-lane queue attribution (`ST-D31`); the two-sided reconciliation bound (`ST-D22`'s within-lane permutation) | **M8**, with Max-Pressure as first consumer. The writer side is done; the estimator is what remains. |
+| 4 | Whether the privilege partition is three directories or two (`ST-D23`) | Open. `ST-D30` fences the only offline loader; a file read from anywhere else is fenced by nothing. Decide when a second reader of the run directory appears. |
+| 5 | Three `ARCH §17` items with no home: residual / cycle failure, network progress, teleport reason | The first two need a cycle boundary the run directory does not mark — **M2**'s phase control provides it. Teleport reason has no source at all: `state/teleport.parquet` records `kind`, not why. |
+| 6 | `verify-run` cannot say whether a dirty run's dirt was a modified tracked file or only an untracked one (`ST-D11`'s second half) | The digest hashes both into one value. Splitting it is a `RunManifest` field, so it lands with the next milestone that changes the manifest. |
+| 7 | `artifacts._SCHEMAS` is imported by several test files under a private name (gate B round 1 asked for the import) | The next change to `artifacts.py` makes it public. |
 
 ## Deferred minor findings
 
