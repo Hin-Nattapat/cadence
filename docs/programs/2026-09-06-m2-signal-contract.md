@@ -11,14 +11,14 @@ last-touched: 2026-09-06
 A thin map (maintainer's option B, 2026-09-06). It does not restate the roadmap, the rules or
 the decisions — §0 points at them. It holds only what M2 owes later milestones (§3) and the
 premises about SUMO that a grep of this repository cannot settle (§4). Steps, files and code
-belong to each phase's plan under `docs/plans/`, in `CLAUDE.md` §14's format.
+belong to each phase's plan under `docs/plans/`, in the plan-status format `CLAUDE.md` describes.
 
 ## §0 reference locations
 
 | what | where | editable |
 |---|---|---|
 | roadmap, M2 row, what M1b carried forward | `docs/DIRECTION.md` §2, §7 | yes |
-| working rules; the five §3 boundaries with no test yet | `CLAUDE.md` §3–§7 | yes |
+| working rules; the five boundaries in `CLAUDE.md` with no test yet | `CLAUDE.md`, `docs/STYLE.md` | yes |
 | decision ids (`ARCH-D*`, `AP-*`, `ST-D*`, `TC-D*`, `MP-D*`) | `research/decisions.yaml` | governance only |
 | controller contract, safety layer, timeout, masks | `research/CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md` §9–§16, §25–§29 | no (research) |
 | actuated control vocabulary; SUMO native actuated | `research/CADENCE_TRAFFIC_ENGINEERING_RESEARCH.md` Part II | no |
@@ -56,7 +56,7 @@ lifecycle (`initialize`, `reset`, `decide`, `on_transition`, `diagnostics`, `clo
 `ControllerContext`, `ControllerObservation` v1 as a view over canonical state, the
 `ControllerAction` variants M3/M4 need, the action mask derived from the same plan metadata,
 the timeout/fallback rule (`ARCH-D09`), the contract test suite every controller must pass
-(`CLAUDE.md` §7 "Contract"), and the fixed external test controller `ARCH §31` names — one that
+(`docs/STYLE.md`, contract tests), and the fixed external test controller `ARCH §31` names — one that
 reproduces the static program exactly, so R6 doubles as the acceptance test. Sets C3–C7. Must
 NOT touch: reward, observation adapters beyond v1, anything under `studies/`. Prerequisite:
 phase 1 merged.
@@ -90,7 +90,7 @@ phase 1 merged.
 | P6 | `setPhase(index)` requires a valid index of the *current* program; whether it restarts the phase clock is not stated. Decides whether transitions run through program phases or through `online` states | external-api | ✅ measured → `SIM-D02`: applies in the same step, restarts the clock, program continues by its own sequencing | spec §3 | — |
 | P7 | libsumo and traci agree on TLS **writes**. Reads are proven byte-identical (`test_reproducibility.py:71`); no write has been issued from CADENCE yet | external-api | ✅ for the four setters probed → `SIM-D03`; phase 2's byte-identical run under both bindings hardens it over a whole run | spec §3 | phase 2 (hardening) |
 | P8 | `getControlledLinks` index == state-string index | external-doc | ✅ | `TraCI/Traffic_Lights_Value_Retrieval.html`; relied on at `topology_reader.py:99`, `ST-D05` | — |
-| P9 | A controller timeout is a wall-clock deadline (`ARCH-D09`, `ARCH §25`) — but Zone A forbids wall-clock (`AP-06`, `CLAUDE.md` §4) | contested internal | ✅ answered 2026-09-06, option (c): the deterministic contract is a simulated budget (a decision is returned within the decision interval by construction); a wall-clock guard lives outside Zone A in the experiment runner and **marks the run** (manifest field, a comparability field under `ST-D33`, so `verify-run` refuses to compare across it) rather than falling back mid-run; latency is diagnostics (`ARCH §26`); a deterministic fallback exists only for an *illegal* action. → `SIG-D07`. | spec §2, §6.5 | maintainer — done |
+| P9 | A controller timeout is a wall-clock deadline (`ARCH-D09`, `ARCH §25`) — but Zone A forbids wall-clock (`AP-06`) | contested internal | ✅ answered 2026-09-06, option (c): the deterministic contract is a simulated budget (a decision is returned within the decision interval by construction); a wall-clock guard lives outside Zone A in the experiment runner and **marks the run** (manifest field, a comparability field under `ST-D33`, so `verify-run` refuses to compare across it) rather than falling back mid-run; latency is diagnostics (`ARCH §26`); a deterministic fallback exists only for an *illegal* action. → `SIG-D07`. | spec §2, §6.5 | maintainer — done |
 
 ## §5 verify
 

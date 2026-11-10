@@ -68,7 +68,7 @@ def check(repo_root: Path) -> list[str]:
                 "which is not in the registry"
             )
 
-    # CLAUDE.md section 6 mandates superseding rather than editing: issue a new id, mark the
+    # PD-D06 mandates superseding rather than editing: issue a new id, mark the
     # old one superseded, point it at the replacement. The document recording that
     # replacement has to name what it replaces, so the successor's source is the one place a
     # superseded id may still be cited.

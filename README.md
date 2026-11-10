@@ -67,7 +67,9 @@ Background: [`docs/ORIGIN.md`](docs/ORIGIN.md)
 ## Repository
 
 ```
-CLAUDE.md                  working rules, conventions, test strategy
+CLAUDE.md                  working rules
+AGENTS.md                  pointer to CLAUDE.md for non-Claude agents
+docs/STYLE.md              how Python is written
 Makefile                   lint, type, docs-check, test — via `make check`
 pyproject.toml             dependencies, tool configuration
 docs/

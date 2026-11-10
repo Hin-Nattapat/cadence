@@ -221,7 +221,7 @@ def test_the_fixture_fleet_is_the_one_type_tripinfo_names(oversaturated_run_dir)
 @pytest.mark.sumo
 @pytest.mark.parametrize("run_dir_fixture", _RUN_DIR_FIXTURES)
 def test_queue_length_peak_never_exceeds_the_lane_it_is_measured_on(request, run_dir_fixture):
-    # CLAUDE.md §7's named property: back-of-queue distance is a length along a lane, so a
+    # A property docs/STYLE.md names: back-of-queue distance is a length along a lane, so a
     # peak longer than the lane means the formula, the fleet footprint or the halting count
     # is wrong. The tightest measured margin is 2.1 m, on the four lanes that fill completely.
     run = RunDirectory(request.getfixturevalue(run_dir_fixture))

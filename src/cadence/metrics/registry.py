@@ -2,7 +2,7 @@
 
 CONTRACT: a metric is declared with `register` immediately beside the function that
 computes it, never in a list kept apart from the code — that separation is exactly the
-drift CLAUDE.md §7 asks the registry to prevent. `register` is a decorator so declaring a
+drift the metric registry exists to prevent. `register` is a decorator so declaring a
 metric with no computing function, or vice versa, is not an expressible mistake: the two
 lines cannot exist independently of each other.
 
@@ -76,7 +76,7 @@ class MetricDefinition:
     input_fields: tuple[str, ...]
     aggregation: str
     limitations: tuple[str, ...]
-    # Empty on every M1b entry (spec §6.2): CLAUDE.md §4 pushes interpretation into the
+    # Empty on every M1b entry (spec §6.2): PD-D04 pushes interpretation into the
     # name and the version, leaving nothing here to discriminate two metrics with. Declared
     # so M8's turn-ratio window and prior weight need no schema change when they arrive.
     config_dependencies: Mapping[str, object]
@@ -89,7 +89,7 @@ class MetricDefinition:
             raise ValueError(
                 f"metric {self.name!r}: name must end with _v{self.version} to match "
                 f"version={self.version} -- version and the name's _v suffix are one fact, "
-                "not two (CLAUDE.md §4)"
+                "not two (PD-D04)"
             )
         if self.population in POPULATIONS_MISSING_THE_UNNAMED_BUCKET and not self.limitations:
             raise ValueError(
@@ -117,7 +117,7 @@ def register(definition: MetricDefinition) -> Callable[[F], F]:
     """Declare `definition` beside the function that computes it, and keep both.
 
     Raises ValueError if `definition.name` is already registered: a metric definition is
-    immutable (CLAUDE.md §4) and a changed interpretation gets a new name ending `_v2`,
+    immutable (PD-D04) and a changed interpretation gets a new name ending `_v2`,
     never an edit in place.
     """
 

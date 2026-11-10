@@ -130,7 +130,7 @@ def test_quantity_kind_is_required():
 
 
 def test_name_must_end_with_the_version_suffix():
-    # CLAUDE.md §4: version and the name's _v suffix are one fact, not two independently
+    # PD-D04: version and the name's _v suffix are one fact, not two independently
     # settable fields.
     fields = _definition_kwargs(name="example_metric_v1", version=2)
     with pytest.raises(ValueError, match="_v2"):
@@ -236,7 +236,7 @@ def test_declared_and_emitted_metrics_are_the_same_set_in_both_directions():
 def test_the_package_declares_exactly_the_metrics_m1b_emits():
     # A containment check on two names is a rolling snapshot: it stays green while a metric
     # is quietly dropped or a nineteenth appears unreviewed. The set is the assertion, so
-    # adding or removing a metric is a deliberate edit here (CLAUDE.md §7, spec §6.2).
+    # adding or removing a metric is a deliberate edit here (spec §6.2).
     assert set(registry.registered_metrics()) == _M1B_METRIC_NAMES
 
 

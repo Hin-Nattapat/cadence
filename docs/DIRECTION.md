@@ -260,7 +260,9 @@ layer, never a control requirement.
 
 ```
 README.md                             what CADENCE is
-CLAUDE.md                             working rules, conventions, test strategy
+CLAUDE.md                             working rules
+AGENTS.md                             pointer to CLAUDE.md for non-Claude agents
+docs/STYLE.md                         how Python is written
 docs/CODEBASE.md                      what exists and how it fits together
 docs/guide/                           dated read-only snapshots of that guide, as web pages
 docs/ORIGIN.md                        why the project exists; lessons from 2020
