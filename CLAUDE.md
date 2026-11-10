@@ -5,8 +5,8 @@ reasoning is in `docs/specs/2026-08-22-project-direction.md`; this file is what 
 
 **CADENCE is a controller-agnostic platform** for network-aware adaptive traffic signal
 control on real-world road networks, built on a validated SUMO core. RL is one controller
-family running on it, not the shape of it (`PD-D01`, `ARCH-D01`). Current milestone and
-roadmap: `docs/DIRECTION.md`.
+family running on it, not the shape of it (`PD-D01`, `ARCH-D01`). Phases and tickets:
+`docs/roadmap/cadence.md`; where the work stands: the GitHub milestones.
 
 ## Read first
 
@@ -14,6 +14,7 @@ roadmap: `docs/DIRECTION.md`.
 |---|---|
 | any Python, written, changed or reviewed | `docs/STYLE.md`, in full |
 | anything | `docs/DIRECTION.md` |
+| where the work stands | `docs/roadmap/cadence.md`, then the GitHub milestone |
 | simulation, network, scenario | `research/CADENCE_SUMO_SIMULATION_RESEARCH.md` |
 | state, contract, safety, metrics | `research/CADENCE_ARCHITECTURE_CONTROLLER_CONTRACT.md` |
 | a controller of any kind | that family's file, via `research/INDEX.md` |
@@ -60,23 +61,27 @@ in the milestone that writes the code it governs.
   rots loudly.
 - **Cite decision IDs** (`-> MP-D02`), never prose headings. The registry
   is `research/decisions.yaml`.
-- **When the doc-consistency check fails,** re-read the section and state the outcome:
-  meaning changed means fix the code; wording only means
-  `cadence docs approve <ID> --reason "..."`. The hash is never updated to silence it.
+- **When the doc-consistency check fails,** fix the citation or the registry.
+  `tools/check_decisions.py` checks that every registered ID's source file exists and names
+  it, and that every ID cited under `src/`, `tools/` and `docs/` (plans excepted) is
+  registered and not superseded or retracted, unless its replacement is named in the same
+  paragraph or the citing document records that replacement. Citations elsewhere are not
+  checked. `PD-D06`'s content-hash layer is not built yet, so a
+  changed section is caught by review, not by the check.
 - **An `adopted` decision's meaning is never edited.** Issue a new ID, mark the old one
   `superseded`, point it at the replacement.
 
 ## Milestone discipline
 
-Follow `docs/DIRECTION.md` §2 and build only the current milestone: no RL code before M4, no
+Build only the current phase (the lowest-numbered open phase milestone with open tickets,
+else the lowest-numbered open one): no RL code before M4, no
 Max-Pressure before M8, and no MPC, MARL or GNN unless an experiment demands it and it is
 agreed first. Building the next milestone early is unreviewed scope.
 
 ## Done means `make check`
 
 Run `make check` (through `rtk proxy` where it is installed) and paste the real output before claiming anything passes. If
-tests fail, say so with the output; if a step was skipped, say that. A plan status flip is a
-change the suite reads, so run the check after the last flip, not before it.
+tests fail, say so with the output; if a step was skipped, say that.
 
 ## Commits and pull requests
 
@@ -121,16 +126,11 @@ is a rule with no mechanical guard.
 
 ## Where the work stands
 
-The plan file that `docs/DIRECTION.md` §1 names carries one status line under each
-`### Task` heading:
-
-`status: todo | doing | done | dropped` `added: YYYY-MM-DD` — optional note
-
-`make status` renders it, and a `SessionStart` hook prints it at the top of every session.
-The maintainer never writes these lines: flip a task's status when it starts and when it
-ends, and print the rendering both times. Unplanned work becomes a task, with an `added:`
-date and the reason it was not foreseen, before it becomes a commit. `tests/test_plan_status.py`
-enforces the pointer, the line format, and at most one `doing` task.
+Definitions live in `docs/roadmap/cadence.md`; status lives in the GitHub milestones and
+issues. Read both live when asked where the work stands, and never write status into the
+roadmap, a plan or a learn doc. A `SessionStart` hook prints the current phase from GitHub
+(`tools/work_status.py`). Unplanned work becomes an issue, or a roadmap revision through
+`/menu`, before it becomes a commit.
 
 ## brigade
 

@@ -17,5 +17,3 @@ studies/**/runs/
 # prompt-corner scratch: review briefs and handoffs are never committed
 .claude/review/
 .claude/handoff*.md
-docs/programs/*.handoff*.md
-docs/programs/*.questions.md

@@ -57,15 +57,12 @@ safety layer ต้องจ่ายไฟเหลืองครบ 3 วิ�
 
 ไม่ทำ simulation ระดับเมือง, ไม่ให้ LLM ควบคุมไฟจราจร, ไม่ทำ MARL หรือ GNN, ไม่เชื่อมระบบจริง
 และไม่ deploy จริง LLM ช่วยได้แค่ฝั่ง workflow การวิจัย ไม่ใช่ตัวตัดสินใจเรื่องไฟ
-(`DIRECTION.md` §9)
+(`DIRECTION.md` §8)
 
-## ทำไปถึงไหนแล้ว (ระดับ milestone)
+## ดูสถานะงานที่ไหน
 
-- **M0–M1 เสร็จแล้ว:** SUMO รันแบบ deterministic ได้, มีสถานะกลาง และมี metric registry
-- **ตอนนี้อยู่ M2:** สร้าง safety layer และสัญญาตัวควบคุม ส่วนที่เสร็จแล้วคือ signal plan และ
-  executor ที่ยังไม่ต่อกับ SUMO
-- รายละเอียดของแต่ละ phase อยู่ในหัวข้อถัดไป ส่วนสถานะของแต่ละ ticket ดูได้จาก GitHub
-  milestone ของ phase นั้น
+ไฟล์นี้ไม่เก็บสถานะ ดูว่าตอนนี้ถึงไหนแล้วได้จาก GitHub milestone (`P2` … `P9`) หรือรัน
+`uv run python tools/work_status.py` ส่วน M0 และ M1 เสร็จไปแล้ว บันทึกของทั้งสองอยู่ใน `docs/specs/`
 
 ## Phase และ gate
 
