@@ -5,13 +5,13 @@ it). **Program map:** `docs/programs/2026-09-06-m2-signal-contract.md`, phase
 `signal-plan-and-executor`, contracts C1, C2, C8.
 
 **Global constraints**
-- Zone A throughout: TDD, `mypy --strict`, unit suffixes, frozen state (`CLAUDE.md` §2, §4).
+- Zone A throughout: TDD, `mypy --strict`, unit suffixes, frozen state (`PD-D07`, `PD-D04`).
 - Nothing under `src/cadence/control/` imports `simulation/sumo/` (map R3, tested from Task 3).
 - Exactly one module calls `trafficlight.set*` (map R4, tested from Task 5).
 - No lamp string anywhere new: the executor selects program phases (`SIG-D01`).
 - Every task ends with `rtk proxy make check` and its raw output; the gate was green at
   422 passed when this plan was written, plus the plan-status test this plan turns green.
-- Status lines below are the only place phase position lives (`CLAUDE.md` §14). Flip them at
+- Status lines below are the only place phase position lives (the plan-status rules in `CLAUDE.md`). Flip them at
   task start and end and print `make status`.
 
 **Interface pinned for the whole phase** (spec §4.3, §5.1):
@@ -148,7 +148,7 @@ two-connection group.
 **Files:** `src/cadence/cli.py` (the loop gains an optional request source and the executor
 wiring behind it; no controller yet), `tests/simulation/sumo/test_signal_transition.py`
 
-Spec §5.1 on SUMO, §7.1's loop shape, and the two `CLAUDE.md` §7 rows M2 owns. Phase 1 has
+Spec §5.1 on SUMO, §7.1's loop shape, and the two testing rows of `docs/STYLE.md` M2 owns. Phase 1 has
 no controller: a **request schedule** — `(time_s, intersection_id, phase_id)` tuples — stands
 in for one so the executor can be exercised end to end without the phase-2 contract.
 

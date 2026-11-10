@@ -34,7 +34,7 @@ class SetPhase:
     phase_index: int
 
 
-# CLAUDE.md §4 puts the unit in the name; N801's CapWords rule has no way to spell `_s`.
+# PD-D04 puts the unit in the name; N801's CapWords rule has no way to spell `_s`.
 @dataclass(frozen=True, slots=True)
 class SetRemainingDuration_s:  # noqa: N801
     intersection_id: IntersectionId

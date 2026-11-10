@@ -269,7 +269,7 @@ def test_the_oversaturated_demand_uses_every_movement():
 def test_the_oversaturated_fixture_behaves_the_way_m1b_measured_it(tmp_path):
     # Everything M1b's metrics are specified against was measured on this fixture, and until
     # now those numbers lived only in a provenance comment. A comment rots silently
-    # (`CLAUDE.md` section 6); this is the same claim as a test.
+    # (PD-D06); this is the same claim as a test.
     import polars as pl
 
     from cadence.cli import run_scenario
