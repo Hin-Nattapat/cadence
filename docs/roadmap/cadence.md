@@ -20,11 +20,11 @@ Issue: #14
 th: ย้ายสถานะงานไปไว้ใน GitHub issues
 Goal: the roadmap and GitHub become the only places work is defined and tracked.
 Scope:
-- Remove `tools/plan_status.py`, `make status`, the `SessionStart` hook and `tests/test_plan_status.py`.
-- `docs/DIRECTION.md` §1 and §2 become a pointer to this roadmap; §3–§9 stay.
+- Remove `tools/plan_status.py`, `make status` and `tests/test_plan_status.py`; the `SessionStart` hook prints the current phase from GitHub instead.
+- `docs/DIRECTION.md` §1 and §2 become a pointer to this roadmap; §3–§8 stay.
 - `CLAUDE.md` "Where the work stands" says: definitions here, status in GitHub, read both live.
 - Delete `docs/plans/2026-09-06-m2-signal-plan-and-executor.md` and `docs/programs/` (with `verify-m2-signal-contract.sh`); what P2-02 and P2-03 still need from them is in their entries below.
-Done when: `make check` passes; `git grep -n "plan_status\|make status\|docs/programs" -- . ':!docs/specs'` prints nothing.
+Done when: `make check` passes; `git grep -n "plan_status\|make status\|docs/programs\|Current plan" -- . ':!docs/specs' ':!docs/plans' ':!docs/roadmap' ':!docs/learn'` prints nothing; a new session opens showing the current phase from GitHub.
 Slices: none
 Decisions: none
 Blocked by: none

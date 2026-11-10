@@ -47,8 +47,9 @@ checks through `rtk proxy`.
     without a new version (`PD-D04`).
 13. **Tests:** Zone A behaviour added without a test that would fail without it; a claim made
     in a comment that could be a test.
-14. **Milestone scope:** code that belongs to a later milestone than the one
-    `docs/DIRECTION.md` §1 names current.
+14. **Milestone scope:** code that belongs to a later phase than the current one (the lowest-numbered
+    open phase milestone with open tickets, else the lowest-numbered open one;
+    `uv run python tools/work_status.py` prints it).
 15. **Forward style rules:** for new and touched functions only, the rules `docs/STYLE.md`
     marks *(forward)*.
 

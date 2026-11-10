@@ -158,7 +158,8 @@ traffic-engineering and machine-learning vocabulary, never CADENCE-specific coin
 
 | Document | Contains |
 |---|---|
-| `docs/DIRECTION.md` | current status, milestone ladder, scenarios, non-goals |
+| `docs/DIRECTION.md` | scenarios, regimes, baselines, non-goals |
+| `docs/roadmap/cadence.md` | phases and tickets; status lives in GitHub |
 | `docs/specs/2026-08-22-project-direction.md` | the decisions that set the current direction |
 | `research/INDEX.md` | the research corpus and what each track concluded |
 | `research/decisions.yaml` | every decision identifier in the project |

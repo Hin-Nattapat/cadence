@@ -1,7 +1,7 @@
 # CADENCE — Current Direction
 
 **Document Type:** Living document. Updated as milestones complete.
-**Last updated:** 2026-09-06
+**Last updated:** 2026-11-10
 
 The reasoning behind everything here is in
 `docs/specs/2026-08-22-project-direction.md`. This file is the operational summary.
@@ -10,35 +10,17 @@ The reasoning behind everything here is in
 
 # 1. Status
 
-```
-Pre-implementation research        complete
-Project direction and conventions  decided  (PD-D01 .. PD-D07)
-Implementation                     M1 complete (M1a, M1b); M2 not started
-Current milestone                  M2 — Signal Safety + Controller Contract
-Current plan                       docs/plans/2026-09-06-m2-signal-plan-and-executor.md
-Program map                        docs/programs/2026-09-06-m2-signal-contract.md
-```
+Definitions of every phase and ticket: `docs/roadmap/cadence.md`. Status: the GitHub
+milestones `P2` … `P9` and their issues; phase `P<n>` is milestone `M<n>`. A Claude Code
+session prints the current phase on start.
 
 ---
 
 # 2. Milestone Ladder (`PD-D02`)
 
-| | Milestone | Delivers | State |
-|---|---|---|---|
-| **M0** | Simulation Harness | deterministic SUMO lifecycle, TraCI/libsumo wrapper, scenario loader, seed wiring, event capture | done |
-| **M1** | Canonical State + Metrics | lane / movement / intersection / network state, metric registry, teleport capture | done |
-| **M1b** | Metrics | metric registry, trip / queue / network / teleport metrics, vehicle accounting, `queue_length_m`, `cadence metrics`, `cadence verify-run` | done |
-| **M2** | Signal Safety + Controller Contract | controller interface, action types, safety and transition executor, action masks, timeout and fallback | current |
-| **M3** | Validation Controllers | tuned fixed-time, SUMO native actuated — the acceptance test for M2 | |
-| **M4** | RL Adapter | Gymnasium adapter, observation builder v1, action mapping, reward v1 | |
-| **M5** | PPO (+ DQN reference) | training and evaluation pipelines, checkpointing, multiple seeds | |
-| **M6** | Single-Intersection Experiments | fixed vs actuated vs RL on controlled synthetic demand | |
-| **M7** | Real-World Intersection | OSM-derived validated intersection. **The demonstration milestone.** | |
-| **M8** | Corridor + Max-Pressure | turn-ratio estimation and shared-lane queue attribution (moved here from M1b by `ST-D31`, since Max-Pressure is their first consumer), storage capacity, 3-5 signals, downstream storage, spillback metric | |
-| **M9** | Network-Aware RL vs Max-Pressure | oversaturation and spillback regimes — the Study 1 claim | |
-
-Architecturally supported but **not scheduled**: MPC, capacity-aware pressure variants,
-MARL, GNN, hybrid controllers. They enter when an experiment demands them, not before.
+The ladder M0–M9 is decided by `PD-D02`. M0 (Simulation Harness) and M1 (Canonical State +
+Metrics, delivered as M1a and M1b) are finished; their records are in `docs/specs/`. M2–M9 are
+defined in `docs/roadmap/cadence.md`, one phase per milestone. Architecturally supported but not scheduled: MPC, capacity-aware pressure variants, MARL, GNN, hybrid controllers; they enter when an experiment demands them.
 
 ---
 
@@ -101,77 +83,7 @@ Ordered by when they enter, not by expected strength.
 
 ---
 
-# 7. Carried into M1
-
-Recorded at the end of M0 so that M1 starts from a written record rather than someone's
-recollection. All four are now taken, at M1a; each row records where.
-
-| # | What M0 left | Where it landed |
-|---|---|---|
-| 1 | `StepResult` and `EventLog.to_parquet` are shaped for events alone | `StepResult` grew a `state` payload (canonical state); `events.parquet` stays events-only and `RunRecorder` is a sibling writer, not an extension (`ST-D08`). |
-| 2 | `RunManifest` records no run outcome | `terminal_time_s`, `step_count`, and `termination_reason` (`drained` / `horizon` / `aborted`) are recorded on every run (`ST-D10`). |
-| 3 | `cadence_dirty` is compared as a plain boolean | `cadence_dirty_digest` hashes `git diff HEAD` plus `git status --porcelain -uall`; hashed, not rejected (`ST-D11`). |
-| 4 | `validation.py` is a second Zone A surface handling `sumolib` | Moved to `simulation/sumo/validation.py`; every SUMO surface — `traci`, `libsumo`, `sumolib` — now lives under `simulation/sumo/` (`ST-D12`). |
-
-## Carried into M1b
-
-Found by the whole-branch review at the end of M1a, and deliberately not patched there.
-Both were preconditions of M1b's first item. Both are now taken: the `ST-D31` writer change
-landed as `topology/vehicle_type.parquet`, `Traversal.from_lane_id` and `distinct_veh` on the
-cross-tab, with the reconciliation test; `ST-D23` was answered for code by `ST-D30` — the
-metrics package never reads `ground_truth/`, enforced by an architecture test — while the
-question of the partition itself stays open below.
-
-| # | What M1a left | Why it belonged to M1b |
-|---|---|---|
-| 1 | The cross-tab's per-lane turn split is unverified (`ST-D31`, superseding `ST-D22`) | A permutation confined to the movements one lane serves relabels 74% of the table and changes no assertion in the suite, because `LaneTurnCount` carries no vehicle key. The deadline splits: the **writer** change lands at M1b, because every run written before it is permanently unreconcilable; the **estimator** that consumes it moves to M8 with the rest of the turn-ratio work. |
-| 2 | The privilege split bounds code, not data (`ST-D23`) | `state/traversal.parquet` carries per-vehicle turn identity and `evaluation/tripinfo.parquet` carries `departLane`; together they reconstruct 89% of the privileged cross-tab's vehicle-steps. The import ban and the allowlist test hold; a file read is fenced by nothing. `ST-D18`'s reasoning is about what a controller could see online, and the partition exists to bound an offline loader — the two have to be reconciled before the first loader is written. |
-
-## Carried into M2 and M8
-
-Recorded at the end of M1b, from spec §9.2 and the four review gates. Each row names the
-milestone that first has a reason to take it.
-
-| # | What M1b leaves | Where it goes, and why there |
-|---|---|---|
-| 1 | The never-inserted bucket has a count and no per-vehicle identity (spec §3.3) | Whichever milestone first needs insertion delay as a per-vehicle outcome. Needs a source the run directory does not have. |
-| 2 | Jam spacing, and with it `storage_capacity_veh` and `available_storage_ratio` (spec §5.3) | **M8**, downstream storage; M8 also runs the congested scenarios where an observational estimate has support. |
-| 3 | Turn-ratio estimation and shared-lane queue attribution (`ST-D31`); the two-sided reconciliation bound (`ST-D22`'s within-lane permutation) | **M8**, with Max-Pressure as first consumer. The writer side is done; the estimator is what remains. |
-| 4 | Whether the privilege partition is three directories or two (`ST-D23`) | Open. `ST-D30` fences the only offline loader; a file read from anywhere else is fenced by nothing. Decide when a second reader of the run directory appears. |
-| 5 | Three `ARCH §17` items with no home: residual / cycle failure, network progress, teleport reason | The first two need a cycle boundary the run directory does not mark — **M2**'s phase control provides it. Teleport reason has no source at all: `state/teleport.parquet` records `kind`, not why. |
-| 6 | `verify-run` cannot say whether a dirty run's dirt was a modified tracked file or only an untracked one (`ST-D11`'s second half) | The digest hashes both into one value. Splitting it is a `RunManifest` field, so it lands with the next milestone that changes the manifest. |
-| 7 | `artifacts._SCHEMAS` is imported by several test files under a private name (gate B round 1 asked for the import) | The next change to `artifacts.py` makes it public. |
-
-## Deferred minor findings
-
-Triaged at the end of M0 and judged not load-bearing. Recorded rather than discarded.
-
-- ~~`tests/conftest.py` — the `repo_root` fixture is defined and never consumed.~~ **Consumed
-  at M1a**, by the integration tests that read a run directory.
-- `config_digest` is implicitly coupled to `BaseModel.model_dump()`'s output shape; a
-  future Pydantic major could change the digest silently. `uv.lock` is committed, so such
-  a bump is itself a commit.
-- `_HASH_CHUNK_BYTES` carries rationale rather than provenance.
-- `tools/build_s0_scenario.py`'s `CAR_MAX_SPEED_MPS = 13.9` is commented as "50 km/h", but
-  50 km/h is 13.888… m/s and `netgenerate` posts 13.89. The fleet is therefore 0.01 m/s
-  faster than every lane it drives on, and 16.8% of measured `mean_speed_mps` rows sit above
-  the posted limit because of it. Found at M1a by the test that first asserted the bound.
-  Not fixed there: correcting the constant regenerates both scenarios and re-measures nine
-  frozen numbers for a hundredth of a metre per second.
-- `ruff format` splits each SUMO `--flag` from its value, so the pairing that carries the
-  meaning of an argument vector is no longer adjacent. A `(flag, value)` tuple list that is
-  flattened would keep each pair atomic.
-- `--no-step-log` and `--duration-log.disable` carry no comment, unlike every other
-  explicitly forced flag.
-- `test_event_is_frozen` asserts on the exception message rather than
-  `isinstance(error, dataclasses.FrozenInstanceError)`.
-- `SumoConnection.__enter__` can leak a SUMO subprocess if `binding.start()` raises after
-  `Popen` — that path is inside traci's own `start()` and is not reachable from
-  `connection.py`.
-
----
-
-# 8. Open Decisions
+# 7. Open Decisions
 
 | ID | Question | Must be resolved by |
 |---|---|---|
@@ -230,7 +142,7 @@ for which `events.parquet` is already the index.
 
 ---
 
-# 9. Non-Goals
+# 8. Non-Goals
 
 Not blockers, not on the current roadmap:
 
@@ -256,7 +168,7 @@ layer, never a control requirement.
 
 ---
 
-# 10. Where Things Live
+# 9. Where Things Live
 
 ```
 README.md                             what CADENCE is
@@ -267,6 +179,8 @@ docs/CODEBASE.md                      what exists and how it fits together
 docs/guide/                           dated read-only snapshots of that guide, as web pages
 docs/ORIGIN.md                        why the project exists; lessons from 2020
 docs/DIRECTION.md                     this file
+docs/roadmap/cadence.md               phases and tickets (status: GitHub)
+docs/learn/                           plain-language overview and per-ticket learn docs (Thai)
 docs/specs/                           dated decision records, immutable once accepted
 research/INDEX.md                     the research corpus
 research/decisions.yaml               every decision identifier

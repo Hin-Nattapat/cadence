@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run python tools/plan_status.py || true"
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run python tools/work_status.py || true"
           }
         ]
       }

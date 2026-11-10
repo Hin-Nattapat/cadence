@@ -74,7 +74,7 @@ Makefile                   lint, type, docs-check, test — via `make check`
 pyproject.toml             dependencies, tool configuration
 docs/
   ORIGIN.md                why the project exists; lessons from 2020
-  DIRECTION.md             current status, milestones, scenarios, non-goals
+  DIRECTION.md             scenarios, regimes, baselines, non-goals
   specs/                   dated decision records
 research/
   INDEX.md                 the research corpus and what each track concluded
