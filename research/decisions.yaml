@@ -697,6 +697,11 @@ SIM-D03:
   source:    ../docs/specs/2026-09-06-m2-signal-contract.md
   status:    hypothesis
 
+SIM-D04:
+  statement: "At the step a transition phase's program duration elapses, SUMO still reports that phase, and the executor's SetPhase applied before the next simulationStep takes effect first; SUMO's own switch never fires, so the executor issues transitions on time and holds no transition phase (measured on s0_turning over a whole scheduled run, libsumo and traci, SUMO 1.27.1)."
+  source:    ../docs/specs/2026-11-11-executor-on-a-real-run.md
+  status:    adopted
+
 SIG-D01:
   statement: "Transitions are the network program's own phases, selected by setPhase; CADENCE never composes a lamp state, so SUMO's online program never occurs and canonical phase_index / phase_elapsed_s stay truthful. Every transition phase a plan needs must exist in the program, and validate-scenario refuses one that lacks it."
   source:    ../docs/specs/2026-09-06-m2-signal-contract.md

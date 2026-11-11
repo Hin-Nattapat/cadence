@@ -34,6 +34,10 @@ _EVENT_GETTERS: tuple[tuple[EventKind, str], ...] = (
     (EventKind.COLLISION, "getCollidingVehiclesIDList"),
 )
 
+# SUMO reports exactly -decel for a vehicle braking at its comfortable limit (-4.5 measured on
+# s0_turning); the tolerance keeps float noise from counting it.
+_HARD_BRAKING_TOLERANCE_MPS2 = 1e-6
+
 
 class SumoConnection:
     def __init__(
@@ -147,6 +151,21 @@ class SumoConnection:
 
     def apply_signal_commands(self, commands: Iterable[SignalCommand]) -> None:
         apply_signal_commands(self._require_open(), commands)
+
+    def hard_braking_vehicles(self) -> tuple[VehicleId, ...]:
+        """Vehicles that braked harder than their own decel in the step just taken.
+
+        Read for the signal safety test and recorded nowhere.
+        """
+        binding = self._require_open()
+        return tuple(
+            sorted(
+                VehicleId(vehicle)
+                for vehicle in binding.vehicle.getIDList()
+                if binding.vehicle.getAcceleration(vehicle)
+                < -binding.vehicle.getDecel(vehicle) - _HARD_BRAKING_TOLERANCE_MPS2
+            )
+        )
 
     def read_ground_truth(self) -> SimulationGroundTruth:
         # ST-D01, ST-D09: the one named, greppable place a caller reaches for privileged

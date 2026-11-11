@@ -205,7 +205,8 @@ uv run cadence run --scenario scenarios/s0_turning/v1
 │   ├── movement.parquet           รายวินาที: สัญญาณของทุก movement
 │   ├── network.parquet            รายวินาที: รถในระบบ / รอออกตัว / ออกแล้ว / ถึงแล้ว / teleport
 │   ├── traversal.parquet          รถแต่ละคันที่ข้ามแยก และข้ามด้วย movement ไหน
-│   └── teleport.parquet           การ teleport แต่ละครั้ง และเลนที่จากไป
+│   ├── teleport.parquet           การ teleport แต่ละครั้ง และเลนที่จากไป
+│   └── signal_event.parquet       ทุกการตัดสินใจของ executor: ขอ, เลื่อน, เริ่มเปลี่ยน, เข้า stage, ถูกบังคับ, ปฏิเสธ (ว่างเมื่อไม่มีตัวควบคุม)
 ├── ground_truth/                  สิ่งที่ตัวควบคุม **ห้าม** เห็น
 │   └── lane_turn.parquet          รายวินาที รายเลน: มีรถกี่คันตั้งใจไปยัง edge ถัดไปอันไหน
 ├── evaluation/                    ข้อมูลรายเที่ยว หลังจบ — ไม่ใช่ทั้งสองอย่างข้างบน
@@ -327,6 +328,29 @@ SUMO เองก็จัดกลุ่มสัญญาณด้วยคู
 working tree และ**เวลานาฬิกา** `compare_manifests()` ตอบคำถาม "สองรอบนี้เอามาเทียบกันได้ไหม"
 (`ST-D33`) ซึ่งเป็นคนละคำถามกับ "สองรอบนี้คือรอบเดียวกันไหม" ที่ `reproducible_fields()` ตอบ
 
+### `control/plan.py`
+`SignalPlan` บอกว่าตัวควบคุมขอ phase ไหนได้ และภายใต้ขอบเขตอะไร **stage** คือ phase ของโปรแกรมที่มี
+สัญญาณผ่านอย่างน้อยหนึ่งตัวและไม่มีไฟเหลือง ส่วน **transition phase** (ไฟเหลือง/เคลียร์แยก) ไม่ใช่
+stage และไม่มีใครขอได้ (`SIG-D03`) ขอบเขต min/max green มาจากไฟล์ `signal_plan.yaml` โปรแกรมที่
+`type` ไม่ใช่ `static` (เช่น `actuated`) ถูกปฏิเสธตั้งแต่สร้าง plan เพราะไม่มี executor ไหนขับมันได้อย่างปลอดภัย
+
+### `control/executor.py` + `control/events.py`
+executor คือ state machine ล้วน ๆ ที่คืน command เป็น**ข้อมูล** ไม่ได้แตะ SUMO เอง (`SIG-D04`)
+มีหนึ่งตัวต่อหนึ่งแยกที่ควบคุม และเรียก `tick` หนึ่งครั้งต่อหนึ่ง step command มีสองแบบ:
+`SetPhase` (สลับ phase) กับ `SetRemainingDuration_s` (ตั้งเวลาที่เหลือ) ตอนอยู่ใน stage executor
+**ถือ** stage ไว้ด้วยเวลา `max_green_s + step_length_s` เพื่อไม่ให้ SUMO สลับออกเองก่อนที่ executor
+จะตัดสินใจ ก่อนทุก tick มี `reconcile` เทียบสิ่งที่ executor เชื่อกับสิ่งที่ SUMO รายงาน ถ้า SUMO
+สลับ phase เองโดยไม่ได้ถูกสั่ง จะ**โยน error** ไม่แก้เงียบ ๆ ทุกการตัดสินใจกลายเป็นแถวใน
+`state/signal_event.parquet` ซึ่งมีเจ็ดชนิด: `stage_requested`, `request_deferred`,
+`request_superseded`, `transition_started`, `stage_entered`, `max_green_forced`, `action_rejected`
+และคำถามว่า SUMO หรือ executor สลับก่อนในจังหวะที่เวลาของ transition หมดพอดี ตอบไว้ที่ `SIM-D04`:
+`SetPhase` ของ executor มีผลก่อนเสมอ
+
+### `simulation/sumo/signal_writer.py`
+โมดูล**เดียว**ที่เรียก `trafficlight.set*` ของ SUMO รับ command จาก executor แล้วแปลงเป็นการเรียก
+ตามลำดับที่ได้มา ไม่เรียงใหม่ ไม่ตัดสินใจอะไร มีเทสต์ `tests/test_architecture.py` กั้นไว้ว่าไม่มีไฟล์อื่น
+เรียกมันได้
+
 ### `metrics/registry.py`
 ทุก metric ประกาศตัวเองด้วย `@register(MetricDefinition(...))` ข้าง ๆ ฟังก์ชันที่คำนวณมัน: ชื่อที่ลงท้าย
 ด้วย `_v1`, หน่วย, **ประชากร**ที่นับ (เที่ยวที่เสร็จ / ไม่เสร็จ / รถที่ออกตัว / รถที่ควรออกตัว / ...),
@@ -377,6 +401,13 @@ working tree และ**เวลานาฬิกา** `compare_manifests()` �
 ที่ไม่สะอาด (พิมพ์ digest ให้ด้วย) ระบุฟิลด์ที่ไม่ตรง และถ้าเทียบได้ก็บอกว่าเป็นการเทียบแบบไหน:
 ตัวควบคุมต่างกัน (`controller-comparison`), seed ต่างกันอย่างเดียว (`seed-replicate`) หรือ
 ไม่มีอะไรต่างเลย (`reproducibility`)
+
+`run_scenario` รับ `request_schedule` (ลำดับของ `ScheduledRequest`: เวลา, แยก, stage ที่ขอ) ซึ่งทำหน้าที่
+แทนตัวควบคุมไปจนกว่า P2-04 จะมาถึง รอบที่รันแบบนี้บันทึก `controller_id = "request_schedule"` ลงใน
+manifest และชื่อโฟลเดอร์ ไม่ใช่ `none` ทุก step เรียก `tick_executors` ซึ่งเป็น "control step" เดียว:
+เดินผ่าน executor ตามลำดับ `IntersectionId`, ส่งคำขอที่ถึงเวลา, ส่ง command ให้ SUMO ผ่าน
+`apply_signal_commands` แล้วคืน event ทั้งหมดให้ recorder ถ้าไม่ส่ง schedule มา (`None`)
+รอบนั้นคือรอบ `none` เดิมทุกไบต์
 
 ---
 
