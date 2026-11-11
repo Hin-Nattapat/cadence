@@ -119,3 +119,61 @@ roadmap เขียนว่า "ไม่มี emergency stop" ซึ่ง�
 - **hard braking**: รถเบรกแรงกว่า `decel` ของมันเอง เป็นสัญญาณว่าไฟเปลี่ยนกะทันหันเกินไป
 - **emergency stop (ของ SUMO)**: การเบรกที่แรงถึงระดับ `emergencyDecel` ซึ่งแรงกว่า hard braking มาก
 - **actuated program**: program ที่ SUMO ปรับเวลาเองตามรถที่ตรวจจับได้ ใช้กับ executor ไม่ได้ เพราะ SUMO จะเปลี่ยนไฟเองโดยไม่ได้รับคำสั่ง
+
+## สิ่งที่สร้างเสร็จแล้ว
+
+- `run_scenario(..., request_schedule=...)` ใน `cli.py` รับรายการ `ScheduledRequest(time_s, intersection_id, phase_id)`
+  - ถ้าไม่ส่ง (`None`) ผลการรันจะเหมือนการรัน `none` เดิมทุกไบต์ ยืนยันด้วย golden test ที่ผ่าน
+  - ถ้าส่ง ระบบจะสร้าง plan กับ executor ของทุกแยก แล้วสั่ง tick ทุก step รวมถึง step แรก
+    event ที่ได้จะถูกเขียนลง `state/signal_event.parquet`
+  - manifest และชื่อโฟลเดอร์การรันจะมี `request_schedule` / `v1`
+- `start_executors` กับ `tick_executors` คือขั้นควบคุมหนึ่ง step ทั้ง `run_scenario` และ test ความปลอดภัยเรียกฟังก์ชันชุดเดียวกันนี้
+  `tick_executors` ไล่แยกตามลำดับ `IntersectionId`
+- คำขอจะ "ถึงเวลา" ที่ step แรกที่ `now_s ≥ time_s` และส่งให้ executor แค่ครั้งเดียว
+  ถ้าแยกเดียวกันมีหลายคำขอถึงเวลาพร้อมกัน จะส่งคำขอที่ถึงก่อนไปก่อนหนึ่งคำขอ ที่เหลือรอส่งใน step ถัด ๆ ไป ไม่มีคำขอไหนหายไป
+- schedule ที่ใช้ไม่ได้จะถูกปฏิเสธด้วย `ValueError` ก่อน tick แรก มีสามกรณี:
+  - ฉากไม่มี `signal_plan.yaml`
+  - คำขอระบุแยกที่ไม่มี plan
+  - program ไม่ใช่แบบ `static`
+
+  เมื่อถูกปฏิเสธ จะไม่มีโฟลเดอร์การรันค้างอยู่ใน output
+- `SumoConnection.hard_braking_vehicles()` คืนรายการรถที่ step ล่าสุดเบรกแรงกว่า `decel` ของตัวเอง
+  ค่านี้มีไว้อ่านใน test เท่านั้น ไม่ได้บันทึกลงไฟล์การรัน
+- ลงทะเบียน `SIM-D04` แล้ว: executor ชนะ zero-margin race
+
+## สิ่งที่วัดได้จากการรันจริง
+
+ทุกข้อด้านล่างได้ผลเหมือนกันทั้ง traci และ libsumo บน `s0_turning` seed 1
+
+- **ขอ stage 2 ตอน t=20:**
+  - phase ที่อ่านได้ตอน t = 20, 21, 22, 23, 24 คือ 0, 1, 1, 1, 2 แปลว่าได้ไฟเหลืองครบ 3 วินาทีก่อนเข้า stage
+  - event ที่เกิดคือ `stage_requested` และ `transition_started` ตอน 20 แล้ว `stage_entered` ตอน 23
+- **ตลอด 600 s:**
+  - ทุกช่วงไฟเหลืองที่ครบช่วงยาวเท่ากับระยะเวลาใน program พอดี มีอย่างน้อย 5 ช่วง
+  - stage ไม่เคยค้างเกิน `max_green_s + step_length_s` (61 s) และมีอย่างน้อยหนึ่ง stage ที่ค้างถึง 60 s
+  - reconcile ไม่เคย raise
+- **สลับ stage 10 ครั้ง (`SWITCH_TIMES_S`):**
+  - ถ้าสลับผ่าน executor ไม่มีรถเบรกแรงเลยสักคันตลอดการรัน
+  - ถ้าใช้ `SetPhase` ตรง ๆ ข้ามไฟเหลือง จะมีรถเบรกแรง แปลว่า test นี้ fail ได้จริง
+
+## รันและตรวจยังไง
+
+```
+rtk proxy make check
+uv run pytest tests/simulation/sumo/test_signal_transition.py -q   # การรันที่มี schedule อ่านผลจากโฟลเดอร์การรัน
+uv run pytest tests/simulation/sumo/test_signal_safety.py -q       # ไม่มีเบรกแรงตอน executor ขับ, มีตอนสลับดิบ
+uv run pytest tests/test_cli.py -q -k "schedule or due"            # การปฏิเสธสามแบบ + ลำดับคิวคำขอ
+uv run pytest tests/simulation/sumo/test_golden.py -q              # การรัน none ยังตรง golden
+```
+
+## ยังไม่ได้ทำ และขั้นต่อไป
+
+- `cadence run` ยังไม่มี flag สำหรับ schedule ตอนนี้ส่ง schedule ได้ผ่าน `run_scenario` ใน Python เท่านั้น
+- manifest ยังแยกไม่ออกว่าสองการรันใช้ schedule ต่างกันหรือเปล่า เพราะยังไม่มี digest ของ config ซึ่งจะมาใน P2-06 (`controller_config_sha256`)
+- schedule ไม่ตรวจค่า `time_s` แปลก ๆ:
+  - ถ้าเป็น NaN คำขอนั้นจะไม่ถึงเวลาเลย และคำขอที่ตามหลังในแยกเดียวกันก็จะไม่ถูกส่งไปด้วย
+  - ถ้าเลยเวลาจบการรัน คำขอนั้นจะไม่ถูกส่งเลย
+  - ยอมรับข้อจำกัดนี้ไว้ เพราะ schedule เป็นแค่โครงชั่วคราวที่ P2-04 จะเอา controller มาแทน
+- hard braking อาจนับผิดเมื่อรถติดหนัก (P7/P8) และ `decel` 4.5 ยังหลวมกว่าเกณฑ์ราว 3 m/s² ของ ITE ดูหัวข้อ "เลือกใช้ hard braking ตัวเดียว" ด้านบน
+- `SIM-D03` ยังเป็นสมมติฐานอยู่ จะได้คำตอบตอนที่ controller ตัวจริงรันครบใน P2-04
+- ขั้นต่อไปคือ **P2-04**: lifecycle ของ controller กับ action v1 และ flag `--controller` ซึ่งจะมาแทน request schedule
