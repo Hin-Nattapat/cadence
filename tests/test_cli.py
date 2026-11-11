@@ -5,7 +5,14 @@ import polars as pl
 import pytest
 from typer.testing import CliRunner
 
-from cadence.cli import DIRTY_TREE_WARNING, _warn_if_dirty, app, run_scenario
+from cadence.cli import (
+    DIRTY_TREE_WARNING,
+    ScheduledRequest,
+    _PendingRequests,
+    _warn_if_dirty,
+    app,
+    run_scenario,
+)
 from cadence.metrics.writer import (
     DEFINITIONS_FILE_NAME,
     LANE_TABLE_FILE_NAME,
@@ -21,7 +28,8 @@ from cadence.simulation.artifacts import (
 from cadence.simulation.manifest import RunManifest
 from cadence.simulation.scenario import SIGNAL_PLAN_FILE_NAME
 from cadence.simulation.state import SignalState
-from cadence.simulation.sumo.binding import BindingKind
+from cadence.simulation.sumo.binding import BindingKind, load_binding
+from cadence.types import IntersectionId, PhaseId
 
 # s0_turning/v1's fleet vType, from build_s0_scenario.py CAR_MAX_SPEED_MPS. A vehicle's
 # speed is bounded by its own vType maxSpeed as well as by the lane, and this fleet's
@@ -429,3 +437,80 @@ def test_verify_run_on_a_path_that_does_not_exist_exits_two(tmp_path):
 
     assert result.exit_code == 2, result.output
     assert "absent" in result.output
+
+
+def _count_simulation_steps(monkeypatch) -> list[int]:
+    # The one third-party boundary this file may patch (docs/STYLE.md §11): it observes that
+    # a refusal came before the first tick, and still calls through.
+    module = load_binding(BindingKind.LIBSUMO)
+    original = module.simulationStep
+    calls: list[int] = []
+
+    def counting_wrapper(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "simulationStep", counting_wrapper)
+    return calls
+
+
+def test_a_schedule_on_a_scenario_without_a_signal_plan_is_refused(tmp_path, repo_root):
+    with pytest.raises(ValueError, match=r"signal_plan\.yaml"):
+        run_scenario(
+            repo_root / "scenarios/s0_single_intersection/v1",
+            tmp_path,
+            seed=1,
+            binding=BindingKind.LIBSUMO,
+            request_schedule=(ScheduledRequest(20.0, IntersectionId("A0"), PhaseId(2)),),
+        )
+
+
+@pytest.mark.sumo
+def test_a_schedule_naming_an_unplanned_intersection_is_refused(tmp_path, repo_root, monkeypatch):
+    steps = _count_simulation_steps(monkeypatch)
+    with pytest.raises(ValueError, match="Z9"):
+        run_scenario(
+            repo_root / "scenarios/s0_turning/v1",
+            tmp_path,
+            seed=1,
+            binding=BindingKind.LIBSUMO,
+            request_schedule=(ScheduledRequest(20.0, IntersectionId("Z9"), PhaseId(2)),),
+        )
+    assert steps == []
+    assert list(tmp_path.glob("*__request_schedule-v1__*")) == []
+
+
+@pytest.mark.sumo
+def test_a_schedule_on_an_actuated_program_is_refused(tmp_path, repo_root, monkeypatch):
+    root = tmp_path / "actuated" / "v1"
+    shutil.copytree(repo_root / "scenarios/s0_turning/v1", root)
+    network = root / "network.net.xml"
+    network.write_text(network.read_text().replace('type="static"', 'type="actuated"'))
+    steps = _count_simulation_steps(monkeypatch)
+    with pytest.raises(ValueError, match="static"):
+        run_scenario(
+            root,
+            tmp_path,
+            seed=1,
+            binding=BindingKind.LIBSUMO,
+            request_schedule=(ScheduledRequest(20.0, IntersectionId("A0"), PhaseId(2)),),
+        )
+    assert steps == []
+    assert list(tmp_path.glob("*__request_schedule-v1__*")) == []
+
+
+def test_due_requests_follow_time_order_not_schedule_order():
+    a0 = IntersectionId("A0")
+    pending = _PendingRequests(
+        (ScheduledRequest(30.0, a0, PhaseId(2)), ScheduledRequest(20.0, a0, PhaseId(0)))
+    )
+    assert pending.due(19.0) == {}
+    assert pending.due(20.0) == {a0: PhaseId(0)}
+    assert pending.due(30.0) == {a0: PhaseId(2)}
+
+
+def test_a_request_is_due_despite_float_noise_in_the_clock():
+    # Simulated time is a running sum of the step length, so 20 s can read a hair under 20.
+    a0 = IntersectionId("A0")
+    pending = _PendingRequests((ScheduledRequest(20.0, a0, PhaseId(2)),))
+    assert pending.due(20.0 - 5e-10) == {a0: PhaseId(2)}
