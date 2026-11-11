@@ -48,14 +48,14 @@ Issue: #16
 th: ให้ executor ขับไฟบนการรันจริง
 Goal: a request schedule drives the executor on SUMO end to end, and the transitions are shown safe.
 Scope:
-- `cadence run` accepts an optional request schedule (`(time_s, intersection_id, phase_id)` tuples) standing in for a controller; no controller contract yet.
+- `run_scenario` accepts an optional request schedule (`(time_s, intersection_id, phase_id)` tuples) standing in for a controller; no CLI flag and no controller contract yet.
 - Signal transition: a request for stage 2 at t = 20 on `s0_turning` yields yellow for its full program duration then stage 2, at the steps the executor reported, with `stage_requested`, `transition_started` and `stage_entered` rows.
-- Zero emergency stops on every step of that run; the same schedule through a raw test-only `setPhase` path does produce them.
+- No hard braking (deceleration beyond a vehicle's own `decel`) on any step of an executor-driven run; a raw test-only `setPhase` path that skips the yellow does produce it.
 - `phase_elapsed_s ≤ max_green_s + step_length_s` in stage rows and `≤ duration_s` in transition rows on a run holding stage 2 to 60 s; the `none` run still meets M1a's bound.
 - Reconciliation raises on a `type="actuated"` program before the first tick.
 - The zero-margin race: at the step a transition phase's timer expires, measure under libsumo and traci over every transition of a 600 s run whether SUMO's own advance or the executor's `SetPhase` wins; record the answer as a new `SIM-D` and, if SUMO wins, issue one step early or hold transition phases.
 - `docs/CODEBASE.md` gains `control/` and the `signal_event` table (Thai).
-Done when: `make check` passes with the transition, emergency-stop, elapsed-bound, reconciliation and golden-digest tests on both bindings, and the race's `SIM-D` is registered.
+Done when: `make check` passes with the transition, hard-braking, elapsed-bound, reconciliation and golden-digest tests on both bindings, and the race's `SIM-D` is registered.
 Slices: none
 Decisions: SIG-D01, SIG-D03, SIG-D04, SIM-D01, SIM-D02, SIM-D03
 Blocked by: P2-02
