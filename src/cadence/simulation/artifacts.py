@@ -9,16 +9,20 @@ rather than by discipline (ST-D08).
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterable
+from collections import defaultdict
+from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from pathlib import Path
+from typing import Final
 from xml.etree import ElementTree
 
 import polars as pl
 
+from cadence.control.events import SignalEvent
 from cadence.simulation.ground_truth import LaneTurnVehicleCount, SimulationGroundTruth
 from cadence.simulation.state import CanonicalTrafficState, TeleportEvent
 from cadence.simulation.topology import NetworkTopology
+from cadence.types import ConnectionId, IntersectionId
 
 TOPOLOGY_DIR = "topology"
 STATE_DIR = "state"
@@ -28,7 +32,7 @@ GROUND_TRUTH_DIR = "ground_truth"
 # privileged allowlist, and a partition the whole metrics package must read means nothing.
 EVALUATION_DIR = "evaluation"
 
-_SCHEMAS: dict[str, dict[str, type[pl.DataType]]] = {
+SCHEMAS: Final[Mapping[str, Mapping[str, type[pl.DataType]]]] = {
     "topology/lane": {
         "lane_id": pl.String,
         "edge_id": pl.String,
@@ -108,6 +112,14 @@ _SCHEMAS: dict[str, dict[str, type[pl.DataType]]] = {
         "from_lane_id": pl.String,
         "kind": pl.String,
     },
+    "state/signal_event": {
+        "time_s": pl.Float64,
+        "intersection_id": pl.String,
+        "kind": pl.String,
+        "from_phase_id": pl.Int64,
+        "to_phase_id": pl.Int64,
+        "reason": pl.String,
+    },
     "ground_truth/lane_turn": {
         "time_s": pl.Float64,
         "lane_id": pl.String,
@@ -177,7 +189,7 @@ class RunRecorder:
     def __init__(self, run_dir: Path, topology: NetworkTopology) -> None:
         self._run_dir = run_dir
         self._topology = topology
-        self._rows: dict[str, list[dict[str, object]]] = {name: [] for name in _SCHEMAS}
+        self._rows: dict[str, list[dict[str, object]]] = {name: [] for name in SCHEMAS}
 
     def record(
         self,
@@ -226,6 +238,9 @@ class RunRecorder:
         for row in truth.lane_turns:
             self._rows["ground_truth/lane_turn"].append({"time_s": truth.time_s, **_as_row(row)})
 
+    def record_signal_events(self, events: Iterable[SignalEvent]) -> None:
+        self._rows["state/signal_event"].extend(_as_row(event) for event in events)
+
     def record_distinct_vehicle_totals(self, totals: Iterable[LaneTurnVehicleCount]) -> None:
         """The whole-run cross-tab (ST-D31). Called once, after the run ends, not per step."""
         rows = self._rows["ground_truth/lane_turn_vehicle"]
@@ -273,31 +288,42 @@ class RunRecorder:
         # link_index is scoped to one TLS (topology_reader.py enumerates
         # getControlledLinks(tls_id) per TLS), so index 0 exists once per TLS. Keying on
         # link_index alone collapses every intersection's index 0 into one dict entry.
-        by_index = {
-            (connection.intersection_id, connection.link_index): connection.connection_id
-            for connection in self._topology.connections.values()
-        }
-        self._rows["topology/tls_program"] = [
-            {
-                "intersection_id": str(phase.intersection_id),
-                "program_id": phase.program_id,
-                "phase_index": phase.phase_index,
-                "duration_s": phase.duration_s,
-                "min_duration_s": phase.min_duration_s,
-                "max_duration_s": phase.max_duration_s,
-                "connection_id": str(by_index[(phase.intersection_id, position)]),
-                "signal": signal.value,
-            }
-            for phase in self._topology.phases
-            for position, signal in enumerate(phase.signals)
-            if (phase.intersection_id, position) in by_index
-        ]
+        # A grouped junction puts several connections behind one index (ST-D05), so each
+        # position keeps every one of them, as plan.py does.
+        by_index: defaultdict[tuple[IntersectionId, int], list[ConnectionId]] = defaultdict(list)
+        for connection in self._topology.connections.values():
+            by_index[(connection.intersection_id, connection.link_index)].append(
+                connection.connection_id
+            )
+        tls_program_rows: list[dict[str, object]] = []
+        for phase in self._topology.phases:
+            for position, signal in enumerate(phase.signals):
+                for connection_id in by_index.get((phase.intersection_id, position), ()):
+                    tls_program_rows.append(
+                        {
+                            "intersection_id": str(phase.intersection_id),
+                            "program_id": phase.program_id,
+                            "phase_index": phase.phase_index,
+                            "duration_s": phase.duration_s,
+                            "min_duration_s": phase.min_duration_s,
+                            "max_duration_s": phase.max_duration_s,
+                            "connection_id": str(connection_id),
+                            "signal": signal.value,
+                        }
+                    )
+        self._rows["topology/tls_program"] = tls_program_rows
         # Every other per-step table's row order follows a project-chosen key
         # (lane id, intersection id, ...); this one followed binding.vehicle.getIDList()'s
         # container order instead. That order is deterministic on both bindings today, but
         # nothing pins it to stay that way across a SUMO upgrade.
         self._rows["state/traversal"].sort(key=lambda row: (row["time_s"], row["vehicle_id"]))
-        for name, schema in _SCHEMAS.items():
+        # One executor per intersection ticks each step, and the file must not depend on
+        # their iteration order (AP-06). The sort is stable, so one executor's rows keep
+        # their tick order.
+        self._rows["state/signal_event"].sort(
+            key=lambda row: (row["time_s"], row["intersection_id"])
+        )
+        for name, schema in SCHEMAS.items():
             path = self._run_dir / f"{name}.parquet"
             path.parent.mkdir(parents=True, exist_ok=True)
             pl.DataFrame(self._rows[name], schema=schema).write_parquet(path)

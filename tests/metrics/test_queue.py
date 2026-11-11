@@ -7,11 +7,11 @@ from cadence.metrics.queue import (
     compute_queue_length_peak_m_v1,
     compute_waiting_total_peak_s_v1,
 )
-from cadence.simulation.artifacts import _SCHEMAS
+from cadence.simulation.artifacts import SCHEMAS
 from conftest import write_manifest_json
 
-_LANE_SCHEMA = _SCHEMAS["state/lane"]
-_VEHICLE_TYPE_SCHEMA = _SCHEMAS["topology/vehicle_type"]
+_LANE_SCHEMA = SCHEMAS["state/lane"]
+_VEHICLE_TYPE_SCHEMA = SCHEMAS["topology/vehicle_type"]
 
 # SUMO's own default minGap for a passenger vType (spec §5.3): the demand's vType does not
 # set it, so this is the value every fixture and hand-built frame here actually carries.

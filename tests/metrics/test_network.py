@@ -11,10 +11,10 @@ from cadence.metrics.network import (
     compute_throughput_vehph_v1,
 )
 from cadence.metrics.registry import Population
-from cadence.simulation.artifacts import _SCHEMAS
+from cadence.simulation.artifacts import SCHEMAS
 from conftest import write_manifest_json
 
-_NETWORK_SCHEMA = _SCHEMAS["state/network"]
+_NETWORK_SCHEMA = SCHEMAS["state/network"]
 
 # ST-D25/ST-D26: which bucket each of these divides by is the claim it makes, so it is pinned
 # from the declaration rather than left to whoever next edits the module.

@@ -11,6 +11,7 @@ BANNED_IN_ZONE_A = {"traci", "libsumo", "studies"}
 # file in Zone A, `control/` included, with no exemption.
 LAMP_STATE_CHARS = frozenset("rygGsuoO")
 SIGNAL_SAFETY_LAYER = SRC_ROOT / "control"
+SIGNAL_WRITER = SRC_ROOT / "simulation" / "sumo" / "signal_writer.py"
 
 
 def _imported_roots(path: Path) -> set[str]:
@@ -269,3 +270,33 @@ def test_the_sumo_binding_import_detector_catches_a_deliberate_violation(tmp_pat
     offender = tmp_path / "offender.py"
     offender.write_text("from cadence.simulation.sumo.connection import SumoConnection\n")
     assert _imports_the_sumo_binding_package(offender)
+
+
+def _sets_a_traffic_light(path: Path) -> bool:
+    # AST, not text: a comment or docstring naming the call is not an `ast.Attribute`.
+    tree = ast.parse(path.read_text(), filename=str(path))
+    return any(
+        isinstance(node, ast.Attribute)
+        and node.attr.startswith("set")
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "trafficlight"
+        for node in ast.walk(tree)
+    )
+
+
+def test_only_the_signal_writer_sets_a_traffic_light():
+    # SIG-D04, map R4: exactly one module changes a light in SUMO.
+    setters = {path for path in sorted(SRC_ROOT.rglob("*.py")) if _sets_a_traffic_light(path)}
+    assert setters == {SIGNAL_WRITER}, "SIG-D04 violated: " + "; ".join(
+        str(path.relative_to(SRC_ROOT)) for path in sorted(setters ^ {SIGNAL_WRITER})
+    )
+
+
+def test_the_traffic_light_setter_detector_catches_a_deliberate_violation(tmp_path):
+    # GOTCHA: a boundary test that cannot fail is worthless. This proves the detector works.
+    offender = tmp_path / "offender.py"
+    offender.write_text('binding.trafficlight.setPhase("A0", 1)\n')
+    assert _sets_a_traffic_light(offender)
+    docstring = tmp_path / "docstring.py"
+    docstring.write_text('"""binding.trafficlight.setPhase is forbidden here"""\n')
+    assert not _sets_a_traffic_light(docstring)

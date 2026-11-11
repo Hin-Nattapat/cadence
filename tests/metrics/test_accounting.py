@@ -3,9 +3,9 @@ import pytest
 
 from cadence.metrics.accounting import VehicleAccounting, account
 from cadence.metrics.loader import RunDirectory
-from cadence.simulation.artifacts import _SCHEMAS
+from cadence.simulation.artifacts import SCHEMAS
 
-_NETWORK_SCHEMA = _SCHEMAS["state/network"]
+_NETWORK_SCHEMA = SCHEMAS["state/network"]
 
 
 def _write_run(tmp_path, *, network_rows, arrivals):
