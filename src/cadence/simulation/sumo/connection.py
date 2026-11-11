@@ -1,15 +1,17 @@
 """SUMO process lifecycle and per-step raw state retrieval.
 
-Owns starting SUMO, advancing time, collecting events, and shutting down. It decides no
-traffic policy; that belongs to the controller layer, which does not exist until M2.
+Owns starting SUMO, advancing time, collecting events, and shutting down. It applies the
+executor's commands through `signal_writer` and decides none of them.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 from types import ModuleType, TracebackType
 from typing import Self
 
+from cadence.control.executor import SignalCommand
 from cadence.simulation.events import EventKind, SimulationEvent, StepResult
 from cadence.simulation.ground_truth import LaneTurnVehicleCount, SimulationGroundTruth
 from cadence.simulation.manifest import TerminationReason
@@ -18,6 +20,7 @@ from cadence.simulation.state import TeleportEvent, TeleportKind
 from cadence.simulation.sumo.binding import BindingKind, load_binding
 from cadence.simulation.sumo.command import build_sumo_command
 from cadence.simulation.sumo.extract import GroundTruthReader, StateExtractor, TraversalDetector
+from cadence.simulation.sumo.signal_writer import apply_signal_commands
 from cadence.simulation.sumo.topology_reader import read_topology
 from cadence.simulation.topology import NetworkTopology
 from cadence.types import VehicleId
@@ -141,6 +144,9 @@ class SumoConnection:
             state=extractor.extract(binding, time_s, events, traversals),
             teleports=teleports,
         )
+
+    def apply_signal_commands(self, commands: Iterable[SignalCommand]) -> None:
+        apply_signal_commands(self._require_open(), commands)
 
     def read_ground_truth(self) -> SimulationGroundTruth:
         # ST-D01, ST-D09: the one named, greppable place a caller reaches for privileged
