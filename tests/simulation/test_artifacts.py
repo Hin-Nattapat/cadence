@@ -3,6 +3,12 @@ import dataclasses
 import polars as pl
 import pytest
 
+from cadence.control.events import (
+    DeferralReason,
+    RejectionReason,
+    SignalEvent,
+    SignalEventKind,
+)
 from cadence.simulation.artifacts import (
     EVALUATION_DIR,
     GROUND_TRUTH_DIR,
@@ -39,7 +45,7 @@ from cadence.simulation.topology import (
     build_movements,
     movement_id,
 )
-from cadence.types import ConnectionId, EdgeId, IntersectionId, LaneId, VehicleId
+from cadence.types import ConnectionId, EdgeId, IntersectionId, LaneId, PhaseId, VehicleId
 
 _TRIPINFO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <tripinfos>
@@ -147,6 +153,7 @@ def test_the_run_directory_has_the_specified_shape(tmp_path, recorder):
         f"{STATE_DIR}/movement.parquet",
         f"{STATE_DIR}/traversal.parquet",
         f"{STATE_DIR}/teleport.parquet",
+        f"{STATE_DIR}/signal_event.parquet",
         f"{GROUND_TRUTH_DIR}/lane_turn.parquet",
         f"{GROUND_TRUTH_DIR}/lane_turn_vehicle.parquet",
         f"{EVALUATION_DIR}/tripinfo.parquet",
@@ -384,6 +391,147 @@ def test_tls_program_attributes_each_phase_to_its_own_intersection(tmp_path):
     by_intersection = dict(program.select("intersection_id", "connection_id").rows())
     assert by_intersection == {"A0": "a_0|b_0", "B0": "c_0|d_0"}
     assert set(program["intersection_id"]) == {"A0", "B0"}
+
+
+def test_tls_program_keeps_every_connection_behind_one_link_index(tmp_path):
+    # ST-D05: a grouped junction puts several connections behind one lamp position.
+    connections = {}
+    for name in ("a_0|b_0", "a_1|b_1"):
+        from_edge, to_edge = name.split("|")[0][0], name.split("|")[1][0]
+        connection = ConnectionInfo(
+            connection_id=ConnectionId(name),
+            intersection_id=IntersectionId("A0"),
+            link_index=0,
+            from_lane_id=LaneId(name.split("|")[0]),
+            to_lane_id=LaneId(name.split("|")[1]),
+            via_lane_id=LaneId(":A0_0_0"),
+            from_edge_id=EdgeId(from_edge),
+            to_edge_id=EdgeId(to_edge),
+            turn_direction=TurnDirection.STRAIGHT,
+            movement_id=movement_id(EdgeId(from_edge), EdgeId(to_edge)),
+        )
+        connections[connection.connection_id] = connection
+    topology = NetworkTopology(
+        lanes={},
+        connections=connections,
+        movements=build_movements(connections.values()),
+        phases=(
+            PhaseInfo(
+                intersection_id=IntersectionId("A0"),
+                program_id="0",
+                program_type=ProgramType.STATIC,
+                phase_index=0,
+                duration_s=42.0,
+                min_duration_s=42.0,
+                max_duration_s=42.0,
+                signals=(SignalState.GREEN_PROTECTED,),
+            ),
+        ),
+        vehicle_types={},
+    )
+    RunRecorder(tmp_path, topology).write()
+
+    program = pl.read_parquet(tmp_path / TOPOLOGY_DIR / "tls_program.parquet")
+    assert program.height == 2
+    assert program["connection_id"].to_list() == ["a_0|b_0", "a_1|b_1"]
+    assert program["signal"].to_list() == ["green_protected", "green_protected"]
+
+
+def test_signal_event_table_is_empty_but_typed_when_nothing_is_recorded(tmp_path, recorder):
+    run_recorder, topology = recorder
+    run_recorder.record(_state(1.0, topology), (), SimulationGroundTruth(1.0, ()))
+    run_recorder.write()
+
+    signal_event = pl.read_parquet(tmp_path / STATE_DIR / "signal_event.parquet")
+    assert signal_event.height == 0
+    assert signal_event.columns == [
+        "time_s",
+        "intersection_id",
+        "kind",
+        "from_phase_id",
+        "to_phase_id",
+        "reason",
+    ]
+    assert signal_event.schema["from_phase_id"] == pl.Int64
+    assert signal_event.schema["reason"] == pl.String
+
+
+def _signal_event(
+    time_s: float,
+    kind: SignalEventKind,
+    from_phase_id: int,
+    to_phase_id: int,
+    reason: str | None = None,
+    intersection: str = "A0",
+) -> SignalEvent:
+    return SignalEvent(
+        time_s,
+        IntersectionId(intersection),
+        kind,
+        PhaseId(from_phase_id),
+        PhaseId(to_phase_id),
+        reason,
+    )
+
+
+def test_every_signal_event_kind_round_trips(tmp_path, recorder):
+    run_recorder, _topology = recorder
+    events = (
+        _signal_event(20.0, SignalEventKind.STAGE_REQUESTED, 0, 2),
+        _signal_event(21.0, SignalEventKind.REQUEST_DEFERRED, 0, 2, DeferralReason.MIN_GREEN),
+        _signal_event(22.0, SignalEventKind.REQUEST_DEFERRED, 2, 0, DeferralReason.IN_TRANSITION),
+        _signal_event(23.0, SignalEventKind.REQUEST_SUPERSEDED, 2, 4),
+        _signal_event(24.0, SignalEventKind.TRANSITION_STARTED, 0, 2),
+        _signal_event(25.0, SignalEventKind.STAGE_ENTERED, 1, 2),
+        _signal_event(26.0, SignalEventKind.MAX_GREEN_FORCED, 0, 2),
+        _signal_event(27.0, SignalEventKind.ACTION_REJECTED, 0, 1, RejectionReason.NOT_A_STAGE),
+        _signal_event(28.0, SignalEventKind.ACTION_REJECTED, 0, 0, RejectionReason.ALREADY_CURRENT),
+    )
+    run_recorder.record_signal_events(events)
+    run_recorder.write()
+
+    signal_event = pl.read_parquet(tmp_path / STATE_DIR / "signal_event.parquet")
+    assert signal_event.rows() == [
+        (event.time_s, "A0", event.kind.value, event.from_phase_id, event.to_phase_id, reason)
+        for event, reason in zip(
+            events,
+            (
+                None,
+                "min_green",
+                "in_transition",
+                None,
+                None,
+                None,
+                None,
+                "not_a_stage",
+                "already_current",
+            ),
+            strict=True,
+        )
+    ]
+
+
+def test_signal_events_are_sorted_by_time_then_intersection_keeping_tick_order(tmp_path, recorder):
+    run_recorder, _topology = recorder
+    run_recorder.record_signal_events(
+        [
+            _signal_event(1.0, SignalEventKind.STAGE_REQUESTED, 0, 2, intersection="B0"),
+            _signal_event(1.0, SignalEventKind.STAGE_REQUESTED, 0, 2, intersection="A0"),
+            _signal_event(1.0, SignalEventKind.TRANSITION_STARTED, 0, 2, intersection="A0"),
+        ]
+    )
+    run_recorder.record_signal_events(
+        [_signal_event(0.0, SignalEventKind.MAX_GREEN_FORCED, 0, 2, intersection="B0")]
+    )
+    run_recorder.write()
+
+    signal_event = pl.read_parquet(tmp_path / STATE_DIR / "signal_event.parquet")
+    assert signal_event.select("time_s", "intersection_id", "kind").rows() == [
+        (0.0, "B0", "max_green_forced"),
+        (1.0, "A0", "stage_requested"),
+        (1.0, "A0", "transition_started"),
+        (1.0, "B0", "stage_requested"),
+    ]
 
 
 def test_tripinfo_keeps_sumo_attribute_names_verbatim(tmp_path, recorder):

@@ -10,9 +10,9 @@ from cadence.metrics.teleport import (
     compute_teleport_affected_veh_v1,
     compute_teleport_incidence_count_v1,
 )
-from cadence.simulation.artifacts import _SCHEMAS
+from cadence.simulation.artifacts import SCHEMAS
 
-_TELEPORT_SCHEMA = _SCHEMAS["state/teleport"]
+_TELEPORT_SCHEMA = SCHEMAS["state/teleport"]
 
 # spec §3.2: the two counts have no vehicle denominator, so RUN is the honest population.
 # The two rates divide one subset of departed vehicles by another, which is what makes
